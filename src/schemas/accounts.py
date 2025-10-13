@@ -1,0 +1,24 @@
+from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+
+from database import accounts_validators
+
+
+class UserRegistrationResponseSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    email: str
+
+
+class UserRegistrationRequestSchema(BaseModel):
+    email: EmailStr
+    password: str
+
+    @field_validator("password")
+    @classmethod
+    def validate_password(cls, v: str) -> str:
+        return accounts_validators.validate_password_strength(v)
+
+
+class MessageResponseSchema(BaseModel):
+    detail: str
