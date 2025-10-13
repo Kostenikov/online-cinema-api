@@ -99,7 +99,7 @@ async def require_moderator(
     if current_user.group.name not in [UserGroupEnum.ADMIN, UserGroupEnum.MODERATOR]:
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required",
+            detail="Admin or moderator role required",
         )
 
     return current_user
