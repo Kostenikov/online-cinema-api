@@ -1,8 +1,8 @@
-"""temp_migration
+"""add cart and cartitem tables
 
-Revision ID: 4f50a6490d79
+Revision ID: c38ce69e8328
 Revises: f4fb79b1ae14
-Create Date: 2025-10-13 12:07:04.981095
+Create Date: 2025-10-13 16:07:55.588652
 
 """
 from typing import Sequence, Union
@@ -12,7 +12,7 @@ import sqlalchemy as sa
 
 
 # revision identifiers, used by Alembic.
-revision: str = '4f50a6490d79'
+revision: str = 'c38ce69e8328'
 down_revision: Union[str, Sequence[str], None] = 'f4fb79b1ae14'
 branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
