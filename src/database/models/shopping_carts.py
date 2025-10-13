@@ -12,7 +12,7 @@ from sqlalchemy.orm import (
     relationship,
 )
 
-from database import Base
+from database import Base, UserModel, MovieModel
 
 
 class CartModel(Base):
@@ -45,13 +45,13 @@ class CartModel(Base):
 
 class CartItemModel(Base):
     __tablename__ = "cart_items"
-    __table_args__ = [
+    __table_args__ = (
         UniqueConstraint(
             "cart_id",
             "movie_id",
             name="unique_movie_in_cart",
         ),
-    ]
+    )
 
     id: Mapped[int] = mapped_column(
         Integer,
