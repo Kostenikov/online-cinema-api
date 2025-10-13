@@ -1,27 +1,27 @@
 from datetime import datetime, timezone
 from typing import cast
 
-from fastapi import APIRouter, Depends, status, HTTPException
-from sqlalchemy import select, delete
+from fastapi import APIRouter, Depends, HTTPException, status
+from sqlalchemy import delete, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
+from config import get_accounts_email_notificator
 from database import (
-    get_db,
-    UserModel,
-    UserGroupModel,
-    UserGroupEnum,
     ActivationTokenModel,
+    UserGroupEnum,
+    UserGroupModel,
+    UserModel,
+    get_db,
 )
 from notifications import EmailSenderInterface
 from schemas import (
-    UserRegistrationRequestSchema,
-    UserRegistrationResponseSchema,
     MessageResponseSchema,
     UserActivationRequestSchema,
+    UserRegistrationRequestSchema,
+    UserRegistrationResponseSchema,
 )
-from security.interfaces import JWTAuthManagerInterface
 
 router = APIRouter()
 
@@ -36,29 +36,19 @@ router = APIRouter()
         409: {
             "description": "Conflict - User with this email already exists.",
             "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "A user with this email test@example.com already exists."
-                    }
-                }
+                "application/json": {"example": {"detail": "A user with this email test@example.com already exists."}}
             },
         },
         500: {
             "description": "Internal Server Error - An error occurred during user creation.",
-            "content": {
-                "application/json": {
-                    "example": {
-                        "detail": "An error occurred during user creation."
-                    }
-                }
-            },
+            "content": {"application/json": {"example": {"detail": "An error occurred during user creation."}}},
         },
-    }
+    },
 )
 async def register_user(
-        user_data: UserRegistrationRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+    user_data: UserRegistrationRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> UserRegistrationResponseSchema:
     """
     Endpoint for user registration.
@@ -85,18 +75,14 @@ async def register_user(
     existing_user = result.scalars().first()
     if existing_user:
         raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail=f"A user with this email {user_data.email} already exists."
+            status_code=status.HTTP_409_CONFLICT, detail=f"A user with this email {user_data.email} already exists."
         )
 
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db.execute(stmt)
     user_group = result.scalars().first()
     if not user_group:
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Default user group not found."
-        )
+        raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Default user group not found.")
 
     try:
         new_user = UserModel.create(
@@ -115,16 +101,12 @@ async def register_user(
     except SQLAlchemyError as e:
         await db.rollback()
         raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="An error occurred during user creation."
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="An error occurred during user creation."
         ) from e
     else:
         activation_link = "http://127.0.0.1/accounts/activate/"
 
-        await email_sender.send_activation_email(
-            new_user.email,
-            activation_link
-        )
+        await email_sender.send_activation_email(new_user.email, activation_link)
 
         return UserRegistrationResponseSchema.model_validate(new_user)
 
@@ -138,21 +120,17 @@ async def register_user(
     responses={
         400: {
             "description": "Bad Request - The activation token is invalid or expired, "
-                           "or the user account is already active.",
+            "or the user account is already active.",
             "content": {
                 "application/json": {
                     "examples": {
                         "invalid_token": {
                             "summary": "Invalid Token",
-                            "value": {
-                                "detail": "Invalid or expired activation token."
-                            }
+                            "value": {"detail": "Invalid or expired activation token."},
                         },
                         "already_active": {
                             "summary": "Account Already Active",
-                            "value": {
-                                "detail": "User account is already active."
-                            }
+                            "value": {"detail": "User account is already active."},
                         },
                     }
                 }
@@ -161,9 +139,9 @@ async def register_user(
     },
 )
 async def activate_account(
-        activation_data: UserActivationRequestSchema,
-        db: AsyncSession = Depends(get_db),
-        email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+    activation_data: UserActivationRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
 ) -> MessageResponseSchema:
     """
     Endpoint to activate a user's account.
@@ -190,10 +168,7 @@ async def activate_account(
         select(ActivationTokenModel)
         .options(joinedload(ActivationTokenModel.user))
         .join(UserModel)
-        .where(
-            UserModel.email == activation_data.email,
-            ActivationTokenModel.token == activation_data.token
-        )
+        .where(UserModel.email == activation_data.email, ActivationTokenModel.token == activation_data.token)
     )
     result = await db.execute(stmt)
     token_record = result.scalars().first()
@@ -203,17 +178,11 @@ async def activate_account(
         if token_record:
             await db.delete(token_record)
             await db.commit()
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="Invalid or expired activation token."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Invalid or expired activation token.")
 
     user = token_record.user
     if user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User account is already active."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User account is already active.")
 
     user.is_active = True
     await db.delete(token_record)
@@ -221,9 +190,6 @@ async def activate_account(
 
     login_link = "http://127.0.0.1/accounts/login/"
 
-    await email_sender.send_activation_complete_email(
-        str(activation_data.email),
-        login_link
-    )
+    await email_sender.send_activation_complete_email(str(activation_data.email), login_link)
 
     return MessageResponseSchema(message="User account activated successfully.")

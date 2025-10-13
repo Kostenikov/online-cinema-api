@@ -1,6 +1,6 @@
 from schemas.accounts import (
+    MessageResponseSchema,
+    UserActivationRequestSchema,
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
-    UserActivationRequestSchema,
-    MessageResponseSchema,
 )
