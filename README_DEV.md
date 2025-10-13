@@ -3,7 +3,7 @@
 
 ## Example of using role based dependencies
 ``` python
-from config import require_admin, require_moderator, require_user
+from security.permissions import require_admin, require_moderator, require_user
 
 
 @router.get("/some_path/")
