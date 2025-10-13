@@ -16,7 +16,6 @@ tqdm = "^4.67.1"
 uvicorn = "^0.37.0"
 httpx = "^0.28.1"
 pytest-env = "^1.2.0"
-flake8 = "^7.3.0"
 psycopg2-binary = "^2.9.11"
 alembic = "^1.17.0"
 passlib = { extras = ["bcrypt"], version = "^1.7.4" }
@@ -36,10 +35,13 @@ aiosqlite = "^0.21.0"
 aioboto3 = "^15.2.0"
 pytest-asyncio = "^1.2.0"
 gunicorn = "^23.0.0"
+async-timeout = "^5.0.1"
+
+[tool.poetry.group.linters.dependencies]
+flake8 = "^7.3.0"
 black = "^25.9.0"
 isort = "^7.0.0"
 mypy = "^1.18.2"
-async-timeout = "^5.0.1"
 
 [build-system]
 requires = ["poetry-core"]
