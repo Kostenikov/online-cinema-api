@@ -34,7 +34,7 @@ class OrderModel(Base):
     )
     user: Mapped[UserModel] = relationship(
         "UserModel",
-        back_populates="orders",
+        backref="orders",
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -86,7 +86,7 @@ class OrderItemModel(Base):
     )
     movie: Mapped[MovieModel] = relationship(
         "MovieModel",
-        back_populates="order_items",
+        backref="order_items",
     )
 
     price_at_order: Mapped[float] = mapped_column(

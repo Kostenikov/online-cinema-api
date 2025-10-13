@@ -31,7 +31,7 @@ class CartModel(Base):
     )
     user: Mapped[UserModel] = relationship(
         "UserModel",
-        back_populates="shopping_cart",
+        backref="shopping_cart",
     )
 
     cart_items: Mapped[list["CartItemModel"]] = relationship(
@@ -74,7 +74,7 @@ class CartItemModel(Base):
     )
     movie: Mapped[MovieModel] = relationship(
         "MovieModel",
-        back_populates="cart_items",
+        backref="cart_items",
     )
 
     added_at: Mapped[datetime] = mapped_column(
