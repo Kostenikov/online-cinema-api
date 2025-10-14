@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import datetime
 from typing import Optional
 
 from pydantic import BaseModel, Field, field_validator
@@ -88,7 +88,7 @@ class MovieListResponseSchema(BaseModel):
 class MovieCreateSchema(BaseModel):
     name: str
     year: int
-    time: float = Field(ge=1)
+    time: int = Field(ge=1)
     imdb: float = Field(ge=0, le=10)
     votes: int = Field(ge=0)
     meta_score: Optional[float] = Field(None, ge=0, le=100)
