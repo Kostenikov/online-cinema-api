@@ -12,7 +12,6 @@ from database.models.accounts import BlacklistedTokenModel
 from exceptions import BaseSecurityError
 from security.interfaces import JWTAuthManagerInterface
 
-
 oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
 
 
