@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
-from database import UserGroupEnum, UserGroupModel, get_db_contextmanager
+from database import UserGroupEnum, UserGroupModel, UserModel, get_db_contextmanager
 
 CHUNK_SIZE = 1000
 
@@ -43,6 +43,7 @@ class CSVDatabaseSeeder:
         If no records are found, it inserts all groups defined in the UserGroupEnum.
         After insertion, the changes are flushed to the current transaction.
         """
+        print("======== Try to seed user groups ========")
         count_stmt = select(func.count(UserGroupModel.id))
         result = await self._db_session.execute(count_stmt)
         existing_groups = result.scalar()
@@ -53,6 +54,48 @@ class CSVDatabaseSeeder:
             await self._db_session.commit()
 
             print("User groups seeded successfully.")
+
+    async def _seed_test_users(self) -> None:
+        print("======== Try to seed test users ========")
+        result = await self._db_session.execute(select(func.count(UserModel.id)))
+        user_count = result.scalar()
+
+        if user_count > 0:
+            print("Users already exist. Skipping user seeding.")
+            return
+
+        group_query = await self._db_session.execute(select(UserGroupModel))
+        groups = {group.name.value: group.id for group in group_query.scalars()}
+
+        user_data = [
+            {
+                "email": "admin@example.com",
+                "password": "Admin123!",
+                "group_id": groups.get("admin"),
+            },
+            {
+                "email": "moderator@example.com",
+                "password": "Moderator123!",
+                "group_id": groups.get("moderator"),
+            },
+            {
+                "email": "user@example.com",
+                "password": "User123!",
+                "group_id": groups.get("user"),
+            },
+        ]
+
+        for data in user_data:
+            user = UserModel.create(
+                email=data["email"],
+                raw_password=data["password"],
+                group_id=data["group_id"],
+            )
+            user.is_active = True
+            self._db_session.add(user)
+
+        await self._db_session.commit()
+        print("Default users seeded successfully.")
 
     async def seed(self) -> None:
         """
@@ -66,6 +109,7 @@ class CSVDatabaseSeeder:
                 await self._db_session.rollback()
 
             await self._seed_user_groups()
+            await self._seed_test_users()
 
         except SQLAlchemyError as e:
             print(f"An error occurred: {e}")
