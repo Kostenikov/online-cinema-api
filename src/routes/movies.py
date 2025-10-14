@@ -190,6 +190,10 @@ async def update_movie(
     movie = await get_movie_or_404(movie_id, db)
     data = movie_data.model_dump(exclude_unset=True)
 
+    if "imdb" in data and data["imdb"] is not None:
+        if data["imdb"] < 0 or data["imdb"] > 10:
+            raise HTTPException(status_code=400, detail="Invalid input data.")
+
     try:
         if "certification" in data:
             movie.certification = await get_or_create(CertificationModel, db, name=data.pop("certification"))

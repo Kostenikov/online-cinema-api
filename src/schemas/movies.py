@@ -111,8 +111,8 @@ class MovieCreateSchema(BaseModel):
 class MovieUpdateSchema(BaseModel):
     name: Optional[str] = None
     year: Optional[int] = None
-    time: Optional[int] = Field(ge=1)
-    imdb: Optional[float] = Field(None, ge=0, le=10)
+    time: Optional[int] = Field(None, ge=1)
+    imdb: Optional[float] = None
     votes: Optional[int] = Field(None, ge=0)
     meta_score: Optional[float] = Field(None, ge=0, le=100)
     gross: Optional[float] = Field(None, ge=0)
