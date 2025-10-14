@@ -95,7 +95,7 @@ class MovieCreateSchema(BaseModel):
     gross: Optional[float] = Field(None, ge=0)
     description: str
     price: float = Field(ge=0)
-    certification_id: int
+    certification: str
     genres: list[str]
     directors: list[str]
     stars: list[str]
@@ -111,7 +111,7 @@ class MovieCreateSchema(BaseModel):
 class MovieUpdateSchema(BaseModel):
     name: Optional[str] = None
     year: Optional[int] = None
-    time: Optional[int] = None
+    time: Optional[int] = Field(ge=1)
     imdb: Optional[float] = Field(None, ge=0, le=10)
     votes: Optional[int] = Field(None, ge=0)
     meta_score: Optional[float] = Field(None, ge=0, le=100)

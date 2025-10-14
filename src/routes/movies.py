@@ -74,8 +74,7 @@ async def create_movie(
     if movie_exists:
         raise HTTPException(status_code=409, detail=f"Movie '{movie.name}' ({movie.year}) already exists.")
 
-    certification = await get_or_create(CertificationModel, db, id=movie.certification_id)
-
+    certification = await get_or_create(CertificationModel, db, name=movie.certification)
     genres = [await get_or_create(GenreModel, db, name=name) for name in movie.genres]
     directors = [await get_or_create(DirectorModel, db, name=name) for name in movie.directors]
     stars = [await get_or_create(StarModel, db, name=name) for name in movie.stars]
