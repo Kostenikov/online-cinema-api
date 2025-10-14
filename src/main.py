@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from routes import accounts_router, fe_router
+from routes import accounts_router, fe_router, shopping_carts_router
 from routes.movies import router as movies_router
 
 app = FastAPI(
@@ -16,7 +16,11 @@ app.include_router(
     tags=["Accounts"],
 )
 app.include_router(fe_router, prefix="/fe")
-
+app.include_router(
+    shopping_carts_router,
+    prefix=f"{api_version_prefix}/shopping-carts",
+    tags=["shopping-carts"],
+)
 app.include_router(
     movies_router,
     prefix=f"{api_version_prefix}/movies",

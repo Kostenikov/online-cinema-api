@@ -10,3 +10,7 @@ from schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
 )
+from schemas.shopping_carts import (
+    CartItemResponseSchema,
+    CartResponseSchema,
+)
