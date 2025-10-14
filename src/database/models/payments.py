@@ -41,6 +41,7 @@ class PaymentModel(Base):
     )
     amount: Mapped[Decimal] = mapped_column(DECIMAL(10, 2), nullable=False)
     external_payment_id: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    external_payment_link: Mapped[str | None] = mapped_column(String(1000), nullable=True)
 
     user: Mapped["UserModel"] = relationship("UserModel", backref="payments")
     order: Mapped["OrderModel"] = relationship("OrderModel", backref="payments")
