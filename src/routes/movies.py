@@ -25,7 +25,14 @@ router = APIRouter()
 @router.get(
     "/",
     response_model=MovieListResponseSchema,
-    responses={404: {"description": "No movies found."}},
+    description="Retrieve a paginated list of movies. Requires authentication.",
+    responses={
+        200: {"description": "Movies retrieved successfully."},
+        404: {
+            "description": "No movies found.",
+            "content": {"application/json": {"example": {"detail": "No movies found."}}},
+        },
+    },
 )
 async def list_movies(
     current_user: Annotated[UserModel, Depends(require_user)],
@@ -55,9 +62,20 @@ async def list_movies(
 
 @router.post(
     "/",
+description="Create a new movie entry. Requires moderator or admin privileges.",
     status_code=status.HTTP_201_CREATED,
     response_model=MovieDetail,
-    responses={409: {"description": "Movie already exists."}},
+    responses={
+        201: {"description": "Movie created successfully."},
+        409: {
+            "description": "Movie already exists.",
+            "content": {"application/json": {"example": {"detail": "Movie 'Inception' (2010) already exists."}}},
+        },
+        500: {
+            "description": "Unexpected server error.",
+            "content": {"application/json": {"example": {"detail": "An error occurred while creating the movie."}}},
+        },
+    },
 )
 async def create_movie(
     current_user: Annotated[UserModel, Depends(require_moderator)],
@@ -105,8 +123,15 @@ async def create_movie(
 
 @router.get(
     "/{movie_id}/",
+    description="Fetch full details for a specific movie by ID.",
     response_model=MovieDetail,
-    responses={404: {"description": "Movie not found."}},
+    responses={
+        200: {"description": "Movie found and returned."},
+        404: {
+            "description": "Movie not found.",
+            "content": {"application/json": {"example": {"detail": "Movie not found."}}},
+        },
+    },
 )
 async def movie_detail(
     current_user: Annotated[UserModel, Depends(require_user)],
@@ -120,7 +145,14 @@ async def movie_detail(
 @router.delete(
     "/{movie_id}/",
     status_code=status.HTTP_204_NO_CONTENT,
-    responses={404: {"description": "Movie not found."}},
+    description="Delete a movie by ID. Requires moderator or admin privileges.",
+    responses={
+        204: {"description": "Movie deleted successfully."},
+        404: {
+            "description": "Movie not found.",
+            "content": {"application/json": {"example": {"detail": "Movie not found."}}},
+        },
+    },
 )
 async def delete_movie(
     current_user: Annotated[UserModel, Depends(require_moderator)],
@@ -134,8 +166,19 @@ async def delete_movie(
 
 @router.patch(
     "/{movie_id}/",
+description="Modify one or more fields of a movie. Requires moderator or admin privileges.",
     response_model=dict,
-    responses={400: {"description": "Invalid data."}, 404: {"description": "Movie not found."}},
+    responses={
+        200: {"description": "Movie updated successfully."},
+        400: {
+            "description": "Invalid data.",
+            "content": {"application/json": {"example": {"detail": "Invalid input data."}}},
+        },
+        404: {
+            "description": "Movie not found.",
+            "content": {"application/json": {"example": {"detail": "Movie not found."}}},
+        },
+    },
 )
 async def update_movie(
     current_user: Annotated[UserModel, Depends(require_moderator)],
