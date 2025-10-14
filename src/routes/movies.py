@@ -148,9 +148,24 @@ async def update_movie(
     data = movie_data.model_dump(exclude_unset=True)
 
     try:
+        if "certification" in data:
+            movie.certification = await get_or_create(CertificationModel, db, name=data.pop("certification"))
+
+        if "genres" in data:
+            movie.genres = [await get_or_create(GenreModel, db, name=name) for name in data.pop("genres")]
+
+        if "directors" in data:
+            movie.directors = [await get_or_create(DirectorModel, db, name=name) for name in data.pop("directors")]
+
+        if "stars" in data:
+            movie.stars = [await get_or_create(StarModel, db, name=name) for name in data.pop("stars")]
+
         for field, value in data.items():
             setattr(movie, field, value)
+
         await db.commit()
+        await db.refresh(movie)
+
     except Exception:
         raise HTTPException(status_code=400, detail="Invalid input data.")
 

@@ -13,7 +13,7 @@ api_version_prefix = "/api/v1"
 app.include_router(
     accounts_router,
     prefix=f"{api_version_prefix}/accounts",
-    tags=["accounts"],
+    tags=["Accounts"],
 )
 app.include_router(fe_router, prefix="/fe")
 

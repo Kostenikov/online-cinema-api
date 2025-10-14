@@ -118,5 +118,9 @@ class MovieUpdateSchema(BaseModel):
     gross: Optional[float] = Field(None, ge=0)
     description: Optional[str] = None
     price: Optional[float] = Field(None, ge=0)
+    certification: Optional[str] = None
+    genres: Optional[list[str]] = None
+    directors: Optional[list[str]] = None
+    stars: Optional[list[str]] = None
 
     model_config = {"from_attributes": True}
