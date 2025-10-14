@@ -79,6 +79,7 @@ def get_accounts_email_notificator(
         password_complete_email_template_name=settings.PASSWORD_RESET_COMPLETE_TEMPLATE_NAME,
     )
 
+
 def get_s3_storage_client(settings: BaseAppSettings = Depends(get_settings)) -> S3StorageInterface:
     """
     Retrieve an instance of the S3StorageInterface configured with the application settings.
