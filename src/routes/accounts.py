@@ -1,5 +1,5 @@
 from datetime import datetime, timezone
-from typing import cast
+from typing import Annotated, cast
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request, status
@@ -8,7 +8,12 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from config import BaseAppSettings, get_accounts_email_notificator, get_jwt_auth_manager, get_settings
+from config import (
+    BaseAppSettings,
+    get_accounts_email_notificator,
+    get_jwt_auth_manager,
+    get_settings,
+)
 from database import (
     ActivationTokenModel,
     PasswordResetTokenModel,
@@ -18,6 +23,7 @@ from database import (
     UserModel,
     get_db,
 )
+from database.models.accounts import BlacklistedTokenModel
 from exceptions import BaseSecurityError
 from notifications import EmailSenderInterface
 from schemas import (
@@ -32,7 +38,9 @@ from schemas import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
 )
+from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
+from security.permissions import require_user
 
 router = APIRouter()
 
@@ -154,6 +162,7 @@ async def register_user(
     },
 )
 async def activate_account(
+    request: Request,
     background_tasks: BackgroundTasks,
     activation_data: UserActivationRequestSchema,
     db: AsyncSession = Depends(get_db),
@@ -206,7 +215,7 @@ async def activate_account(
     await db.delete(token_record)
     await db.commit()
 
-    login_link = "http://127.0.0.1/api/v1/accounts/login/"  # TODO change this after creating login endpoint
+    login_link = str(request.url_for("login"))
 
     background_tasks.add_task(email_sender.send_activation_complete_email, str(user.email), login_link)
 
@@ -363,6 +372,7 @@ async def reset_password(
 
 @router.post(
     "/login/",
+    name="login",
     response_model=UserLoginResponseSchema,
     summary="User Login",
     description="Authenticate a user and return access and refresh tokens.",
@@ -452,6 +462,7 @@ async def login_user(
 
 @router.post(
     "/refresh/",
+    name="refresh",
     response_model=TokenRefreshResponseSchema,
     summary="Refresh Access Token",
     description="Refresh the access token using a valid refresh token.",
@@ -526,3 +537,67 @@ async def refresh_access_token(
     new_access_token = jwt_manager.create_access_token({"user_id": user_id})
 
     return TokenRefreshResponseSchema(access_token=new_access_token)
+
+
+@router.post(
+    "/logout/",
+    name="logout",
+    response_model=MessageResponseSchema,
+    summary="User Logout",
+    description="Logout a user by blacklisting their access token and removing their refresh token.",
+    status_code=status.HTTP_200_OK,
+    responses={
+        401: {
+            "description": "Unauthorized - Invalid or missing access token.",
+            "content": {
+                "application/json": {
+                    "examples": {
+                        "missing_token": {
+                            "summary": "Missing Token",
+                            "value": {"detail": "Authorization header is required."},
+                        },
+                        "invalid_token": {
+                            "summary": "Invalid Token",
+                            "value": {"detail": "Invalid or expired token."},
+                        },
+                    },
+                },
+            },
+        },
+        500: {
+            "description": "Internal Server Error - An error occurred during logout.",
+            "content": {"application/json": {"example": {"detail": "An error occurred during logout."}}},
+        },
+    },
+)
+async def logout_user(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    token: str = Depends(get_token),
+    db: AsyncSession = Depends(get_db),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
+) -> MessageResponseSchema:
+
+    payload = jwt_manager.decode_access_token(token)
+    token_exp = payload.get("exp")
+
+    expires_at = datetime.now(timezone.utc)
+    if token_exp:
+        expires_at = datetime.fromtimestamp(token_exp, tz=timezone.utc)
+
+    try:
+        await db.execute(
+            delete(RefreshTokenModel).where(RefreshTokenModel.user_id == current_user.id),
+        )
+        blacklisted_token = BlacklistedTokenModel(token=token, expires_at=expires_at)
+        db.add(blacklisted_token)
+
+        await db.commit()
+
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during logout.",
+        )
+
+    return MessageResponseSchema(message="Logged out successfully")
