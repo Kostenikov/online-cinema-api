@@ -1,10 +1,10 @@
 from datetime import datetime, timedelta
+from io import BytesIO
 from unittest.mock import patch
 
 import pytest
-from io import BytesIO
 from PIL import Image
-from sqlalchemy import select, func
+from sqlalchemy import func, select
 
 from database import UserModel, UserProfileModel
 from exceptions import S3FileUploadError
@@ -13,7 +13,7 @@ from exceptions import S3FileUploadError
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_create_user_profile_with_fake_s3(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Positive test for creating a user profile.
@@ -88,9 +88,9 @@ async def test_create_user_profile_with_fake_s3(
     [
         (None, 401, "Authorization header is missing"),
         (
-                {"Authorization": "Token invalid_token"},
-                401,
-                "Invalid Authorization header format. Expected 'Bearer <token>'"
+            {"Authorization": "Token invalid_token"},
+            401,
+            "Invalid Authorization header format. Expected 'Bearer <token>'",
         ),
     ],
 )
@@ -147,14 +147,15 @@ async def test_create_user_profile_expired_token(client, jwt_manager):
     response = await client.post(profile_url, headers=headers, files=files)
 
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-    assert response.json()["detail"] == "User not found or not active.", \
-        f"Unexpected error message: {response.json()['detail']}"
+    assert (
+        response.json()["detail"] == "User not found or not active."
+    ), f"Unexpected error message: {response.json()['detail']}"
 
 
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_admin_creates_user_profile(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Test that an admin can create a profile for another user.
@@ -234,7 +235,7 @@ async def test_admin_creates_user_profile(
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_user_cannot_create_another_user_profile(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Test that a regular user cannot create a profile for another user.
@@ -282,8 +283,9 @@ async def test_user_cannot_create_another_user_profile(
 
     response = await client.post(profile_url, headers=headers, files=files)
     assert response.status_code == 403, f"Expected 403, got {response.status_code}"
-    assert response.json()["detail"] == "You don't have permission to edit this profile.", \
-        f"Unexpected error message: {response.json()['detail']}"
+    assert (
+        response.json()["detail"] == "You don't have permission to edit this profile."
+    ), f"Unexpected error message: {response.json()['detail']}"
 
     stmt_profile = select(UserProfileModel).where(UserProfileModel.user_id == user_2.id)
     result_profile = await db_session.execute(stmt_profile)
@@ -294,7 +296,7 @@ async def test_user_cannot_create_another_user_profile(
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_inactive_user_cannot_create_profile(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Test that an inactive user cannot create a profile.
@@ -334,8 +336,9 @@ async def test_inactive_user_cannot_create_profile(
 
     response = await client.post(profile_url, headers=headers, files=files)
     assert response.status_code == 401, f"Expected 401, got {response.status_code}"
-    assert response.json()[
-               "detail"] == "User not found or not active.", f"Unexpected error message: {response.json()['detail']}"
+    assert (
+        response.json()["detail"] == "User not found or not active."
+    ), f"Unexpected error message: {response.json()['detail']}"
 
     stmt_profile = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
     result_profile = await db_session.execute(stmt_profile)
@@ -346,7 +349,7 @@ async def test_inactive_user_cannot_create_profile(
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_cannot_create_profile_twice(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Test that a user cannot create a profile twice.
@@ -389,9 +392,9 @@ async def test_cannot_create_profile_twice(
 
     response2 = await client.post(profile_url, headers=headers, files=files)
     assert response2.status_code == 400, f"Expected 400, got {response2.status_code}"
-    assert response2.json()["detail"] == "User already has a profile.", (
-        f"Unexpected error message: {response2.json()['detail']}"
-    )
+    assert (
+        response2.json()["detail"] == "User already has a profile."
+    ), f"Unexpected error message: {response2.json()['detail']}"
 
     stmt_count = select(func.count(UserProfileModel.id)).where(UserProfileModel.user_id == user.id)
     result_count = await db_session.execute(stmt_count)
@@ -402,7 +405,7 @@ async def test_cannot_create_profile_twice(
 @pytest.mark.asyncio
 @pytest.mark.unit
 async def test_profile_creation_fails_on_s3_upload_error(
-        db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
+    db_session, seed_user_groups, reset_db, jwt_manager, s3_storage_fake, client
 ):
     """
     Test that profile creation fails if S3 upload fails.
@@ -444,9 +447,9 @@ async def test_profile_creation_fails_on_s3_upload_error(
         response = await client.post(profile_url, headers=headers, files=files)
 
     assert response.status_code == 500, f"Expected 500, got {response.status_code}"
-    assert response.json()["detail"] == "Failed to upload avatar. Please try again later.", (
-        f"Unexpected error message: {response.json()['detail']}"
-    )
+    assert (
+        response.json()["detail"] == "Failed to upload avatar. Please try again later."
+    ), f"Unexpected error message: {response.json()['detail']}"
 
     stmt_profile = select(UserProfileModel).where(UserProfileModel.user_id == user.id)
     result_profile = await db_session.execute(stmt_profile)
@@ -456,10 +459,13 @@ async def test_profile_creation_fails_on_s3_upload_error(
 
 @pytest.mark.asyncio
 @pytest.mark.unit
-@pytest.mark.parametrize("first_name, last_name, expected_error", [
-    ("John1", "Doe", "John1 contains non-english letters"),
-    ("John", "Doe1", "Doe1 contains non-english letters"),
-])
+@pytest.mark.parametrize(
+    "first_name, last_name, expected_error",
+    [
+        ("John1", "Doe", "John1 contains non-english letters"),
+        ("John", "Doe1", "Doe1 contains non-english letters"),
+    ],
+)
 async def test_profile_creation_invalid_name(client, jwt_manager, first_name, last_name, expected_error):
     """
     Test that profile creation fails if the first_name or last_name contains non-English letters.
@@ -579,10 +585,13 @@ async def test_profile_creation_invalid_gender(client, jwt_manager):
 
 @pytest.mark.asyncio
 @pytest.mark.unit
-@pytest.mark.parametrize("birth_date, expected_error", [
-    ("1800-01-01", "Invalid birth date - year must be greater than 1900."),
-    ("2010-01-01", "You must be at least 18 years old to register."),
-])
+@pytest.mark.parametrize(
+    "birth_date, expected_error",
+    [
+        ("1800-01-01", "Invalid birth date - year must be greater than 1900."),
+        ("2010-01-01", "You must be at least 18 years old to register."),
+    ],
+)
 async def test_profile_creation_invalid_birth_date(client, jwt_manager, birth_date, expected_error):
     """
     Test that profile creation fails if birth_date is invalid.
@@ -631,5 +640,6 @@ async def test_profile_creation_empty_info(client, jwt_manager, info_value):
 
     response = await client.post(profile_url, headers=headers, files=files)
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
-    assert "Info field cannot be empty or contain only spaces." in str(response.json()), \
-        f"Unexpected error message: {response.json()}"
+    assert "Info field cannot be empty or contain only spaces." in str(
+        response.json()
+    ), f"Unexpected error message: {response.json()}"

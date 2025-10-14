@@ -1,18 +1,18 @@
-from datetime import datetime, timezone, timedelta
+from datetime import datetime, timedelta, timezone
 from unittest.mock import patch
 
 import pytest
-from sqlalchemy import select, delete, func
+from sqlalchemy import delete, func, select
 from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import joinedload
 
 from database import (
-    UserModel,
     ActivationTokenModel,
     PasswordResetTokenModel,
-    UserGroupModel,
+    RefreshTokenModel,
     UserGroupEnum,
-    RefreshTokenModel
+    UserGroupModel,
+    UserModel,
 )
 
 
@@ -23,10 +23,7 @@ async def test_register_user_success(client, db_session, seed_user_groups):
 
     Validates that a new user and an activation token are created in the database.
     """
-    payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
 
     response = await client.post("/api/v1/accounts/register/", json=payload)
     assert response.status_code == 201, "Expected status code 201 Created."
@@ -55,13 +52,16 @@ async def test_register_user_success(client, db_session, seed_user_groups):
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize("invalid_password, expected_error", [
-    ("short", "Password must contain at least 8 characters."),
-    ("NoDigitHere!", "Password must contain at least one digit."),
-    ("nodigitnorupper@", "Password must contain at least one uppercase letter."),
-    ("NOLOWERCASE1@", "Password must contain at least one lower letter."),
-    ("NoSpecial123", "Password must contain at least one special character: @, $, !, %, *, ?, #, &."),
-])
+@pytest.mark.parametrize(
+    "invalid_password, expected_error",
+    [
+        ("short", "Password must contain at least 8 characters."),
+        ("NoDigitHere!", "Password must contain at least one digit."),
+        ("nodigitnorupper@", "Password must contain at least one uppercase letter."),
+        ("NOLOWERCASE1@", "Password must contain at least one lower letter."),
+        ("NoSpecial123", "Password must contain at least one special character: @, $, !, %, *, ?, #, &."),
+    ],
+)
 async def test_register_user_password_validation(client, seed_user_groups, invalid_password, expected_error):
     """
     Test password strength validation in the user registration endpoint.
@@ -75,10 +75,7 @@ async def test_register_user_password_validation(client, seed_user_groups, inval
         invalid_password (str): The password to test.
         expected_error (str): The expected error message substring.
     """
-    payload = {
-        "email": "testuser@example.com",
-        "password": invalid_password
-    }
+    payload = {"email": "testuser@example.com", "password": invalid_password}
 
     response = await client.post("/api/v1/accounts/register/", json=payload)
     assert response.status_code == 422, "Expected status code 422 for invalid input."
@@ -100,10 +97,7 @@ async def test_register_user_conflict(client, db_session, seed_user_groups):
         db_session: The asynchronous database session fixture.
         seed_user_groups: Fixture that seeds default user groups.
     """
-    payload = {
-        "email": "conflictuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    payload = {"email": "conflictuser@example.com", "password": "StrongPassword123!"}
 
     response_first = await client.post("/api/v1/accounts/register/", json=payload)
     assert response_first.status_code == 201, "Expected status code 201 for the first registration."
@@ -132,10 +126,7 @@ async def test_register_user_internal_server_error(client, seed_user_groups):
     then verifies that the registration endpoint returns the appropriate HTTP 500 error
     with the expected error message.
     """
-    payload = {
-        "email": "erroruser@example.com",
-        "password": "StrongPassword123!"
-    }
+    payload = {"email": "erroruser@example.com", "password": "StrongPassword123!"}
 
     with patch("routes.accounts.AsyncSession.commit", side_effect=SQLAlchemyError):
         response = await client.post("/api/v1/accounts/register/", json=payload)
@@ -158,10 +149,7 @@ async def test_activate_account_success(client, db_session, seed_user_groups):
     - Activate the user using the activation token.
     - Verify the user is activated and the token is deleted.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
 
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
@@ -176,13 +164,11 @@ async def test_activate_account_success(client, db_session, seed_user_groups):
     assert user is not None, "User was not created in the database."
     assert not user.is_active, "Newly registered user should not be active."
 
-    assert user.activation_token is not None and user.activation_token.token is not None, \
-        "Activation token was not created in the database."
+    assert (
+        user.activation_token is not None and user.activation_token.token is not None
+    ), "Activation token was not created in the database."
 
-    activation_payload = {
-        "email": registration_payload["email"],
-        "token": user.activation_token.token
-    }
+    activation_payload = {"email": registration_payload["email"], "token": user.activation_token.token}
 
     activation_response = await client.post("/api/v1/accounts/activate/", json=activation_payload)
     assert activation_response.status_code == 200, "Expected status code 200 for successful activation."
@@ -217,10 +203,7 @@ async def test_activate_user_with_expired_token(client, db_session, seed_user_gr
     - Attempt to activate the account with the expired token.
     - Verify that the response is a 400 error with the expected error message.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
 
@@ -238,16 +221,13 @@ async def test_activate_user_with_expired_token(client, db_session, seed_user_gr
     activation_token.expires_at = datetime.now(timezone.utc) - timedelta(days=2)
     await db_session.commit()
 
-    activation_payload = {
-        "email": registration_payload["email"],
-        "token": activation_token.token
-    }
+    activation_payload = {"email": registration_payload["email"], "token": activation_token.token}
     activation_response = await client.post("/api/v1/accounts/activate/", json=activation_payload)
 
     assert activation_response.status_code == 400, "Expected status code 400 for expired token."
-    assert activation_response.json()["detail"] == "Invalid or expired activation token.", (
-        "Expected error message for expired token."
-    )
+    assert (
+        activation_response.json()["detail"] == "Invalid or expired activation token."
+    ), "Expected error message for expired token."
 
 
 @pytest.mark.asyncio
@@ -264,10 +244,7 @@ async def test_activate_user_with_deleted_token(client, db_session, seed_user_gr
     - Attempt to activate the account using the deleted token.
     - Verify that a 400 error is returned with the appropriate error message.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
 
@@ -284,20 +261,15 @@ async def test_activate_user_with_deleted_token(client, db_session, seed_user_gr
 
     token_value = activation_token.token
 
-    await db_session.execute(
-        delete(ActivationTokenModel).where(ActivationTokenModel.id == activation_token.id)
-    )
+    await db_session.execute(delete(ActivationTokenModel).where(ActivationTokenModel.id == activation_token.id))
     await db_session.commit()
 
-    activation_payload = {
-        "email": registration_payload["email"],
-        "token": token_value
-    }
+    activation_payload = {"email": registration_payload["email"], "token": token_value}
     activation_response = await client.post("/api/v1/accounts/activate/", json=activation_payload)
     assert activation_response.status_code == 400, "Expected status code 400 for deleted token."
-    assert activation_response.json()["detail"] == "Invalid or expired activation token.", (
-        "Expected error message for deleted token."
-    )
+    assert (
+        activation_response.json()["detail"] == "Invalid or expired activation token."
+    ), "Expected error message for deleted token."
 
 
 @pytest.mark.asyncio
@@ -312,10 +284,7 @@ async def test_activate_already_active_user(client, db_session, seed_user_groups
     - Attempt to activate the user using the activation token.
     - Verify that a 400 error with the expected error message is returned.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
 
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
@@ -333,15 +302,12 @@ async def test_activate_already_active_user(client, db_session, seed_user_groups
     activation_token = result_token.scalars().first()
     assert activation_token is not None, "Activation token should exist for the user."
 
-    activation_payload = {
-        "email": registration_payload["email"],
-        "token": activation_token.token
-    }
+    activation_payload = {"email": registration_payload["email"], "token": activation_token.token}
     activation_response = await client.post("/api/v1/accounts/activate/", json=activation_payload)
     assert activation_response.status_code == 400, "Expected status code 400 for already active user."
-    assert activation_response.json()["detail"] == "User account is already active.", (
-        "Expected error message for already active user."
-    )
+    assert (
+        activation_response.json()["detail"] == "User account is already active."
+    ), "Expected error message for already active user."
 
 
 @pytest.mark.asyncio
@@ -359,10 +325,7 @@ async def test_request_password_reset_token_success(client, db_session, seed_use
     - Query the database to confirm that a PasswordResetTokenModel record was created.
     - Verify that the token's expiration date is in the future.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
 
@@ -377,8 +340,9 @@ async def test_request_password_reset_token_success(client, db_session, seed_use
     reset_payload = {"email": registration_payload["email"]}
     reset_response = await client.post("/api/v1/accounts/password-reset/request/", json=reset_payload)
     assert reset_response.status_code == 200, "Expected status code 200 for successful token request."
-    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", \
-        "Expected success message for password reset token request."
+    assert (
+        reset_response.json()["message"] == "If you are registered, you will receive an email with instructions."
+    ), "Expected success message for password reset token request."
 
     stmt_token = select(PasswordResetTokenModel).where(PasswordResetTokenModel.user_id == user.id)
     result_token = await db_session.execute(stmt_token)
@@ -404,9 +368,9 @@ async def test_request_password_reset_token_nonexistent_user(client, db_session)
 
     reset_response = await client.post("/api/v1/accounts/password-reset/request/", json=reset_payload)
     assert reset_response.status_code == 200, "Expected status code 200 for non-existent user request."
-    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", (
-        "Expected generic success message for non-existent user request."
-    )
+    assert (
+        reset_response.json()["message"] == "If you are registered, you will receive an email with instructions."
+    ), "Expected generic success message for non-existent user request."
 
     stmt = select(func.count(PasswordResetTokenModel.id))
     result = await db_session.execute(stmt)
@@ -422,10 +386,7 @@ async def test_request_password_reset_token_for_inactive_user(client, db_session
     Ensures that the endpoint returns the generic success message and that no password reset token
     is created when the user is registered but inactive.
     """
-    registration_payload = {
-        "email": "inactiveuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "inactiveuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
 
@@ -438,9 +399,9 @@ async def test_request_password_reset_token_for_inactive_user(client, db_session
     reset_payload = {"email": registration_payload["email"]}
     reset_response = await client.post("/api/v1/accounts/password-reset/request/", json=reset_payload)
     assert reset_response.status_code == 200, "Expected status code 200 for inactive user password reset request."
-    assert reset_response.json()["message"] == "If you are registered, you will receive an email with instructions.", (
-        "Expected generic success message for inactive user password reset request."
-    )
+    assert (
+        reset_response.json()["message"] == "If you are registered, you will receive an email with instructions."
+    ), "Expected generic success message for inactive user password reset request."
 
     stmt_tokens = select(func.count(PasswordResetTokenModel.id))
     result_tokens = await db_session.execute(stmt_tokens)
@@ -460,10 +421,7 @@ async def test_reset_password_success(client, db_session, seed_user_groups):
     - Use the token to reset the password.
     - Verify the password is updated in the database.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "OldPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "OldPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "Expected status code 201 for successful registration."
 
@@ -477,10 +435,7 @@ async def test_reset_password_success(client, db_session, seed_user_groups):
     activation_token = result_token.scalars().first()
     assert activation_token is not None, "Activation token should be created in the database."
 
-    activation_payload = {
-        "email": registration_payload["email"],
-        "token": activation_token.token
-    }
+    activation_payload = {"email": registration_payload["email"], "token": activation_token.token}
     activation_response = await client.post("/api/v1/accounts/activate/", json=activation_payload)
     assert activation_response.status_code == 200, "Expected status code 200 for successful activation."
 
@@ -500,13 +455,13 @@ async def test_reset_password_success(client, db_session, seed_user_groups):
     reset_payload = {
         "email": registration_payload["email"],
         "token": reset_token_record.token,
-        "password": new_password
+        "password": new_password,
     }
     reset_response = await client.post("/api/v1/accounts/reset-password/complete/", json=reset_payload)
     assert reset_response.status_code == 200, "Expected status code 200 for successful password reset."
-    assert reset_response.json()["message"] == "Password reset successfully.", (
-        "Unexpected response message for password reset."
-    )
+    assert (
+        reset_response.json()["message"] == "Password reset successfully."
+    ), "Unexpected response message for password reset."
 
     await db_session.refresh(created_user)
     assert created_user.verify_password(new_password), "Password should be updated successfully in the database."
@@ -519,11 +474,7 @@ async def test_reset_password_invalid_email(client, db_session):
 
     Validates that the endpoint returns a 400 status code and appropriate error message.
     """
-    reset_payload = {
-        "email": "nonexistent@example.com",
-        "token": "random_token",
-        "password": "NewSecurePassword123!"
-    }
+    reset_payload = {"email": "nonexistent@example.com", "token": "random_token", "password": "NewSecurePassword123!"}
 
     response = await client.post("/api/v1/accounts/reset-password/complete/", json=reset_payload)
 
@@ -539,10 +490,7 @@ async def test_reset_password_invalid_token(client, db_session, seed_user_groups
     Validates that the endpoint returns a 400 status code and an appropriate error message when an invalid token is provided.
     Also ensures that any invalid token is removed from the database.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert response.status_code == 201, "User registration failed."
 
@@ -561,7 +509,7 @@ async def test_reset_password_invalid_token(client, db_session, seed_user_groups
     reset_complete_payload = {
         "email": registration_payload["email"],
         "token": "incorrect_token",
-        "password": "NewSecurePassword123!"
+        "password": "NewSecurePassword123!",
     }
     response = await client.post("/api/v1/accounts/reset-password/complete/", json=reset_complete_payload)
     assert response.status_code == 400, "Expected status code 400 for invalid token."
@@ -581,10 +529,7 @@ async def test_reset_password_expired_token(client, db_session, seed_user_groups
     Validates that the endpoint returns a 400 status code and an appropriate error message when the password
     reset token is expired, and verifies that the expired token is removed from the database.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "User registration failed."
 
@@ -611,7 +556,7 @@ async def test_reset_password_expired_token(client, db_session, seed_user_groups
     reset_complete_payload = {
         "email": registration_payload["email"],
         "token": token_record.token,
-        "password": "NewSecurePassword123!"
+        "password": "NewSecurePassword123!",
     }
     reset_response = await client.post("/api/v1/accounts/reset-password/complete/", json=reset_complete_payload)
     assert reset_response.status_code == 400, "Expected status code 400 for expired token."
@@ -638,10 +583,7 @@ async def test_reset_password_sqlalchemy_error(client, db_session, seed_user_gro
     - Attempt to reset the password while simulating a database commit error.
     - Verify that a 500 error is returned with the expected error message.
     """
-    registration_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    registration_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     registration_response = await client.post("/api/v1/accounts/register/", json=registration_payload)
     assert registration_response.status_code == 201, "User registration failed."
 
@@ -665,16 +607,16 @@ async def test_reset_password_sqlalchemy_error(client, db_session, seed_user_gro
     reset_complete_payload = {
         "email": registration_payload["email"],
         "token": token_record.token,
-        "password": "NewSecurePassword123!"
+        "password": "NewSecurePassword123!",
     }
 
     with patch("routes.accounts.AsyncSession.commit", side_effect=SQLAlchemyError):
         reset_response = await client.post("/api/v1/accounts/reset-password/complete/", json=reset_complete_payload)
 
     assert reset_response.status_code == 500, "Expected status code 500 for SQLAlchemyError."
-    assert reset_response.json()["detail"] == "An error occurred while resetting the password.", (
-        "Unexpected error message for SQLAlchemyError."
-    )
+    assert (
+        reset_response.json()["detail"] == "An error occurred while resetting the password."
+    ), "Unexpected error message for SQLAlchemyError."
 
 
 @pytest.mark.asyncio
@@ -685,29 +627,19 @@ async def test_login_user_success(client, db_session, jwt_manager, seed_user_gro
     Validates that access and refresh tokens are returned, the refresh token is stored in the database,
     and both tokens are valid.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    user_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
 
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "Default user group should exist."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = True
     db_session.add(user)
     await db_session.commit()
 
-    login_payload = {
-        "email": user_payload["email"],
-        "password": user_payload["password"]
-    }
+    login_payload = {"email": user_payload["email"], "password": user_payload["password"]}
     response = await client.post("/api/v1/accounts/login/", json=login_payload)
     assert response.status_code == 201, "Expected status code 201 for successful login."
     response_data = response.json()
@@ -742,41 +674,28 @@ async def test_login_user_invalid_cases(client, db_session, seed_user_groups):
     1. Non-existent user.
     2. Incorrect password for an existing user.
     """
-    login_payload = {
-        "email": "nonexistent@example.com",
-        "password": "SomePassword123!"
-    }
+    login_payload = {"email": "nonexistent@example.com", "password": "SomePassword123!"}
     response = await client.post("/api/v1/accounts/login/", json=login_payload)
     assert response.status_code == 401, "Expected status code 401 for non-existent user."
-    assert response.json()["detail"] == "Invalid email or password.", \
-        "Unexpected error message for non-existent user."
+    assert response.json()["detail"] == "Invalid email or password.", "Unexpected error message for non-existent user."
 
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "CorrectPassword123!"
-    }
+    user_payload = {"email": "testuser@example.com", "password": "CorrectPassword123!"}
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "Default user group should exist."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = True
     db_session.add(user)
     await db_session.commit()
 
-    login_payload_incorrect_password = {
-        "email": user_payload["email"],
-        "password": "WrongPassword123!"
-    }
+    login_payload_incorrect_password = {"email": user_payload["email"], "password": "WrongPassword123!"}
     response = await client.post("/api/v1/accounts/login/", json=login_payload_incorrect_password)
     assert response.status_code == 401, "Expected status code 401 for incorrect password."
-    assert response.json()["detail"] == "Invalid email or password.", \
-        "Unexpected error message for incorrect password."
+    assert (
+        response.json()["detail"] == "Invalid email or password."
+    ), "Unexpected error message for incorrect password."
 
 
 @pytest.mark.asyncio
@@ -787,34 +706,23 @@ async def test_login_user_inactive_account(client, db_session, seed_user_groups)
     Validates that the endpoint returns a 403 status code and an appropriate error message
     when attempting to log in with a user whose account is not activated.
     """
-    user_payload = {
-        "email": "inactiveuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    user_payload = {"email": "inactiveuser@example.com", "password": "StrongPassword123!"}
 
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "User group not found."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = False
     db_session.add(user)
     await db_session.commit()
 
-    login_payload = {
-        "email": user_payload["email"],
-        "password": user_payload["password"]
-    }
+    login_payload = {"email": user_payload["email"], "password": user_payload["password"]}
     response = await client.post("/api/v1/accounts/login/", json=login_payload)
 
     assert response.status_code == 403, "Expected status code 403 for inactive user."
-    assert response.json()["detail"] == "User account is not activated.", \
-        "Unexpected error message for inactive user."
+    assert response.json()["detail"] == "User account is not activated.", "Unexpected error message for inactive user."
 
 
 @pytest.mark.asyncio
@@ -824,36 +732,26 @@ async def test_login_user_commit_error(client, db_session, seed_user_groups):
 
     Validates that the endpoint returns a 500 status code and an appropriate error message.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    user_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "Default user group should exist."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = True
     db_session.add(user)
     await db_session.commit()
 
-    login_payload = {
-        "email": user_payload["email"],
-        "password": user_payload["password"]
-    }
+    login_payload = {"email": user_payload["email"], "password": user_payload["password"]}
 
     with patch("routes.accounts.AsyncSession.commit", side_effect=SQLAlchemyError):
         response = await client.post("/api/v1/accounts/login/", json=login_payload)
 
     assert response.status_code == 500, "Expected status code 500 for database commit error."
-    assert response.json()["detail"] == "An error occurred while processing the request.", (
-        "Unexpected error message for database commit error."
-    )
+    assert (
+        response.json()["detail"] == "An error occurred while processing the request."
+    ), "Unexpected error message for database commit error."
 
 
 @pytest.mark.asyncio
@@ -868,28 +766,18 @@ async def test_refresh_access_token_success(client, db_session, jwt_manager, see
     - Use the refresh token to obtain a new access token.
     - Verify that the new access token contains the correct user ID.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    user_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "Default user group should exist."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = True
     db_session.add(user)
     await db_session.commit()
 
-    login_payload = {
-        "email": user_payload["email"],
-        "password": user_payload["password"]
-    }
+    login_payload = {"email": user_payload["email"], "password": user_payload["password"]}
     login_response = await client.post("/api/v1/accounts/login/", json=login_payload)
     assert login_response.status_code == 201, "Expected status code 201 for successful login."
     login_data = login_response.json()
@@ -914,10 +802,7 @@ async def test_refresh_access_token_expired_token(client, jwt_manager):
     Validates that a 400 status code and "Token has expired." message are returned
     when the refresh token is expired.
     """
-    expired_token = jwt_manager.create_refresh_token(
-        {"user_id": 1},
-        expires_delta=timedelta(days=-1)
-    )
+    expired_token = jwt_manager.create_refresh_token({"user_id": 1}, expires_delta=timedelta(days=-1))
 
     refresh_payload = {"refresh_token": expired_token}
     refresh_response = await client.post("/api/v1/accounts/refresh/", json=refresh_payload)
@@ -957,21 +842,14 @@ async def test_refresh_access_token_user_not_found(client, db_session, jwt_manag
     - Attempt to refresh the access token using the invalid refresh token.
     - Verify that the endpoint returns a 404 error with the expected message.
     """
-    user_payload = {
-        "email": "testuser@example.com",
-        "password": "StrongPassword123!"
-    }
+    user_payload = {"email": "testuser@example.com", "password": "StrongPassword123!"}
 
     stmt = select(UserGroupModel).where(UserGroupModel.name == UserGroupEnum.USER)
     result = await db_session.execute(stmt)
     user_group = result.scalars().first()
     assert user_group is not None, "Default user group should exist."
 
-    user = UserModel.create(
-        email=user_payload["email"],
-        raw_password=user_payload["password"],
-        group_id=user_group.id
-    )
+    user = UserModel.create(email=user_payload["email"], raw_password=user_payload["password"], group_id=user_group.id)
     user.is_active = True
     db_session.add(user)
     await db_session.commit()
@@ -979,11 +857,7 @@ async def test_refresh_access_token_user_not_found(client, db_session, jwt_manag
     invalid_user_id = 9999
     refresh_token = jwt_manager.create_refresh_token({"user_id": invalid_user_id})
 
-    refresh_token_record = RefreshTokenModel.create(
-        user_id=invalid_user_id,
-        days_valid=7,
-        token=refresh_token
-    )
+    refresh_token_record = RefreshTokenModel.create(user_id=invalid_user_id, days_valid=7, token=refresh_token)
     db_session.add(refresh_token_record)
     await db_session.commit()
 
