@@ -3,6 +3,7 @@ from fastapi.encoders import jsonable_encoder
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 from starlette.datastructures import UploadFile
+from starlette.middleware.cors import CORSMiddleware
 
 from routes import accounts_router, fe_router, profiles_router, shopping_carts_router
 from routes.movies import router as movies_router
@@ -25,6 +26,14 @@ async def validation_exception_handler(request: Request, exc: RequestValidationE
         content=jsonable_encoder({"detail": exc.errors()}),
     )
 
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 api_version_prefix = "/api/v1"
 
