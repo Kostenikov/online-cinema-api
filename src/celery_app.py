@@ -1,4 +1,5 @@
 from celery import Celery
+
 from config import get_settings
 
 settings = get_settings()
@@ -29,4 +30,3 @@ celery_app.conf.update(
 #         "schedule": 10.0,
 #     },
 # }
-
