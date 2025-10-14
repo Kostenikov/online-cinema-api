@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 
-from routes import accounts_router
+from routes import accounts_router, fe_router
 
 app = FastAPI(
     title="Online Cinema API",
@@ -14,3 +14,4 @@ app.include_router(
     prefix=f"{api_version_prefix}/accounts",
     tags=["accounts"],
 )
+app.include_router(fe_router, prefix="/fe")
