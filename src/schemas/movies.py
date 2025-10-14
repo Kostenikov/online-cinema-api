@@ -96,16 +96,11 @@ class MovieCreateSchema(BaseModel):
     description: str
     price: float = Field(ge=0)
     certification_id: int
-    genres: list[int]
-    directors: list[int]
-    stars: list[int]
+    genres: list[str]
+    directors: list[str]
+    stars: list[str]
 
     model_config = {"from_attributes": True}
-
-    @field_validator("certification", mode="before")
-    @classmethod
-    def normalize_certification(cls, value: str) -> str:
-        return value.upper()
 
     @field_validator("genres", "directors", "stars", mode="before")
     @classmethod
