@@ -1,0 +1,75 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8"/>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Activate User</title>
+  <style>
+      body {
+          font-family: Arial, sans-serif;
+          background-color: #f5f7fa;
+          display: flex;
+          align-items: center;
+          justify-content: center;
+          height: 100vh;
+      }
+
+      form {
+          background: white;
+          padding: 2rem;
+          border-radius: 12px;
+          box-shadow: 0 4px 10px rgba(0, 0, 0, 0.1);
+          width: 320px;
+      }
+
+      input, button {
+          width: 100%;
+          padding: 10px;
+          margin: 0.5rem 0;
+          border: 1px solid #ccc;
+          border-radius: 6px;
+      }
+
+      button {
+          background-color: #007bff;
+          color: white;
+          border: none;
+          cursor: pointer;
+      }
+
+      button:hover {
+          background-color: #0056b3;
+      }
+  </style>
+</head>
+<body>
+
+<form id="emailForm">
+  <h1>Activate Your Account</h1>
+  <p class="subtitle">Enter your email to confirm your registration.</p>
+
+  <input type="email" id="email" required />
+  <input type="hidden" id="token" value="{{ token }}" />
+
+  <button type="submit">Submit</button>
+</form>
+
+<script>
+    document.getElementById("emailForm").addEventListener("submit", async (e) => {
+        e.preventDefault();
+        const email = document.getElementById("email").value;
+        const token = document.getElementById("token").value;
+
+        const response = await fetch("{{ activation_url }}", {
+            method: "POST",
+            headers: {"Content-Type": "application/json"},
+            body: JSON.stringify({email, token}),
+        });
+
+        const data = await response.json();
+        alert(JSON.stringify(data));
+    });
+</script>
+
+</body>
+</html>
