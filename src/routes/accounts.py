@@ -40,7 +40,7 @@ from schemas import (
 )
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
-from security.permissions import require_user, require_admin, require_moderator
+from security.permissions import require_admin, require_moderator, require_user
 
 router = APIRouter()
 
@@ -603,16 +603,13 @@ async def logout_user(
     return MessageResponseSchema(message="Logged out successfully")
 
 
-
 @router.get(
     "/test_only_admins_allowed/",
     name="test_only_admins_allowed",
     response_model=MessageResponseSchema,
-    description="Endpoint for testing access of admins."
+    description="Endpoint for testing access of admins.",
 )
-async def test_admin_access(
-        current_user: Annotated[UserModel, Depends(require_admin)]
-) -> MessageResponseSchema:
+async def test_admin_access(current_user: Annotated[UserModel, Depends(require_admin)]) -> MessageResponseSchema:
     return MessageResponseSchema(message=f"User {current_user.email} has access to this endpoint")
 
 
@@ -620,10 +617,10 @@ async def test_admin_access(
     "/test_only_moderators_admins_allowed/",
     name="test_only_moderators_admins_allowed",
     response_model=MessageResponseSchema,
-    description="Endpoint for testing access of admins and moderators."
+    description="Endpoint for testing access of admins and moderators.",
 )
-async def test_admin_access(
-        current_user: Annotated[UserModel, Depends(require_moderator)]
+async def test_moderator_access(
+    current_user: Annotated[UserModel, Depends(require_moderator)],
 ) -> MessageResponseSchema:
     return MessageResponseSchema(message=f"User {current_user.email} has access to this endpoint")
 
@@ -632,9 +629,7 @@ async def test_admin_access(
     "/test_authenticated_users_allowed/",
     name="test_authenticated_users_allowed",
     response_model=MessageResponseSchema,
-    description="Endpoint for testing access of authenticated users."
+    description="Endpoint for testing access of authenticated users.",
 )
-async def test_admin_access(
-        current_user: Annotated[UserModel, Depends(require_user)]
-) -> MessageResponseSchema:
+async def test_user_access(current_user: Annotated[UserModel, Depends(require_user)]) -> MessageResponseSchema:
     return MessageResponseSchema(message=f"User {current_user.email} has access to this endpoint")

@@ -5,7 +5,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_settings
-from database import UserGroupEnum, UserGroupModel, get_db_contextmanager, UserModel
+from database import UserGroupEnum, UserGroupModel, UserModel, get_db_contextmanager
 
 CHUNK_SIZE = 1000
 
@@ -96,7 +96,6 @@ class CSVDatabaseSeeder:
 
         await self._db_session.commit()
         print("Default users seeded successfully.")
-
 
     async def seed(self) -> None:
         """
