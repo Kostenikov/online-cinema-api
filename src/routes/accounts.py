@@ -586,7 +586,7 @@ async def logout_user(
 
     try:
         await db.execute(
-            delete(RefreshTokenModel).where(RefreshTokenModel.user_id == current_user.id),
+            delete(RefreshTokenModel).filter(RefreshTokenModel.user_id == current_user.id),
         )
         blacklisted_token = BlacklistedTokenModel(token=token, expires_at=expires_at)
         db.add(blacklisted_token)

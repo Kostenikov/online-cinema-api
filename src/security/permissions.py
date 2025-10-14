@@ -1,22 +1,38 @@
 from typing import Annotated
 
 from fastapi import Depends, HTTPException, status
+from fastapi.security import OAuth2PasswordBearer
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from config import get_jwt_auth_manager
 from database import UserGroupEnum, UserModel, get_db
+from database.models.accounts import BlacklistedTokenModel
 from exceptions import BaseSecurityError
-from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
 
 
+oauth2_scheme = OAuth2PasswordBearer(tokenUrl="login")
+
+
 async def get_current_user(
-    token: str = Depends(get_token),
+    token: str = Depends(oauth2_scheme),
     jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
     db: AsyncSession = Depends(get_db),
 ) -> UserModel:
+
+    stmt = select(BlacklistedTokenModel).filter_by(token=token)
+    result = await db.execute(stmt)
+    blacklisted_token = result.scalars().first()
+
+    if blacklisted_token:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token has been revoked.",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+
     try:
         payload = jwt_manager.decode_access_token(token)
         token_user_id = payload.get("user_id")
