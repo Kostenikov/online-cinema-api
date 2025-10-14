@@ -62,7 +62,7 @@ async def list_movies(
 
 @router.post(
     "/",
-description="Create a new movie entry. Requires moderator or admin privileges.",
+    description="Create a new movie entry. Requires moderator or admin privileges.",
     status_code=status.HTTP_201_CREATED,
     response_model=MovieDetail,
     responses={
@@ -166,7 +166,7 @@ async def delete_movie(
 
 @router.patch(
     "/{movie_id}/",
-description="Modify one or more fields of a movie. Requires moderator or admin privileges.",
+    description="Modify one or more fields of a movie. Requires moderator or admin privileges.",
     response_model=dict,
     responses={
         200: {"description": "Movie updated successfully."},
