@@ -10,8 +10,8 @@ from sqlalchemy.orm import joinedload
 from config import get_jwt_auth_manager, get_s3_storage_client
 from database import get_db
 from database.models.accounts import UserGroupEnum, UserModel, UserProfileModel
-from exceptions import BaseSecurityError, BaseS3Error
-from schemas.profiles import ProfileCreateResponseSchema, ProfileCreateRequestSchema
+from exceptions import BaseS3Error, BaseSecurityError
+from schemas.profiles import ProfileCreateRequestSchema, ProfileCreateResponseSchema
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
 from storages import S3StorageInterface
@@ -34,43 +34,29 @@ async def create_user_profile(
     try:
         token = jwt_manager.decode_access_token(token)
     except BaseSecurityError as error:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail=str(error)
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=str(error))
     current_user = await db.scalar(
-        select(
-            UserModel
-        ).where(
-            UserModel.id == token.get("user_id")
-        ).options(
+        select(UserModel)
+        .where(UserModel.id == token.get("user_id"))
+        .options(
             joinedload(UserModel.group),
         )
     )
     if not current_user or not current_user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="User not found or not active."
-        )
+        raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="User not found or not active.")
     if not current_user.has_group(UserGroupEnum.ADMIN) and current_user.id != user_id:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="You don't have permission to edit this profile."
+            status_code=status.HTTP_403_FORBIDDEN, detail="You don't have permission to edit this profile."
         )
     user_for_profile = await db.scalar(
-        select(
-            UserModel
-        ).where(
-            UserModel.id == user_id
-        ).options(
+        select(UserModel)
+        .where(UserModel.id == user_id)
+        .options(
             joinedload(UserModel.profile),
         )
     )
     if user_for_profile.profile:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST,
-            detail="User already has a profile."
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="User already has a profile.")
     _, extension = os.path.splitext(profile_data.avatar.filename)
     avatar_path = f"avatars/{user_id}_avatar{extension}"
     file = await profile_data.avatar.read()
@@ -80,7 +66,7 @@ async def create_user_profile(
     except BaseS3Error:
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Failed to upload avatar. Please try again later."
+            detail="Failed to upload avatar. Please try again later.",
         )
     profile = UserProfileModel(
         first_name=profile_data.first_name,
