@@ -7,7 +7,7 @@ class BaseEmailPasswordSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     email: EmailStr
-    password: str
+    password: str = "SecurePassword@123"
 
     @field_validator("email")
     @classmethod
@@ -38,3 +38,11 @@ class UserActivationRequestSchema(BaseModel):
 
 class MessageResponseSchema(BaseModel):
     message: str
+
+
+class PasswordResetRequestSchema(BaseModel):
+    email: EmailStr
+
+
+class PasswordResetCompleteRequestSchema(BaseEmailPasswordSchema):
+    token: str
