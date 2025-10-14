@@ -56,11 +56,21 @@ async def get_current_user(
 
 async def require_admin(
     current_user: Annotated[UserModel, Depends(get_current_user)],
+    token: str = Depends(oauth2_scheme),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
 ) -> UserModel:
-    if current_user.group.name != UserGroupEnum.ADMIN:
+    try:
+        payload = jwt_manager.decode_access_token(token)
+        user_group = payload.get("user_group")
+        if user_group != UserGroupEnum.ADMIN:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin role required",
+            )
+    except BaseSecurityError as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin role required",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
         )
 
     return current_user
@@ -68,11 +78,21 @@ async def require_admin(
 
 async def require_moderator(
     current_user: Annotated[UserModel, Depends(get_current_user)],
+    token: str = Depends(oauth2_scheme),
+    jwt_manager: JWTAuthManagerInterface = Depends(get_jwt_auth_manager),
 ) -> UserModel:
-    if current_user.group.name not in [UserGroupEnum.ADMIN, UserGroupEnum.MODERATOR]:
+    try:
+        payload = jwt_manager.decode_access_token(token)
+        user_group = payload.get("user_group")
+        if user_group not in [UserGroupEnum.ADMIN, UserGroupEnum.MODERATOR]:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Admin or moderator role required",
+            )
+    except BaseSecurityError as e:
         raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin or moderator role required",
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail=str(e),
         )
 
     return current_user

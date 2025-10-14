@@ -421,7 +421,7 @@ async def login_user(
             - 403 Forbidden if the user account is not activated.
             - 500 Internal Server Error if an error occurs during token creation.
     """
-    stmt = select(UserModel).filter_by(email=login_data.email)
+    stmt = select(UserModel).options(joinedload(UserModel.group)).filter_by(email=login_data.email)
     result = await db.execute(stmt)
     user = result.scalars().first()
 
@@ -453,7 +453,7 @@ async def login_user(
             detail="An error occurred while processing the request.",
         )
 
-    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id})
+    jwt_access_token = jwt_manager.create_access_token({"user_id": user.id, "user_group": user.group.name})
     return UserLoginResponseSchema(
         access_token=jwt_access_token,
         refresh_token=jwt_refresh_token,
@@ -525,7 +525,7 @@ async def refresh_access_token(
             detail="Refresh token not found.",
         )
 
-    stmt = select(UserModel).filter_by(id=user_id)
+    stmt = select(UserModel).options(joinedload(UserModel.group)).filter_by(id=user_id)
     result = await db.execute(stmt)
     user = result.scalars().first()
     if not user:
@@ -534,7 +534,7 @@ async def refresh_access_token(
             detail="User not found.",
         )
 
-    new_access_token = jwt_manager.create_access_token({"user_id": user_id})
+    new_access_token = jwt_manager.create_access_token({"user_id": user_id, "user_group": user.group.name})
 
     return TokenRefreshResponseSchema(access_token=new_access_token)
 
