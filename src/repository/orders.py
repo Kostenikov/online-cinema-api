@@ -2,9 +2,9 @@ from decimal import Decimal
 
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
-from sqlalchemy.orm import selectinload
+from sqlalchemy.orm import selectinload, joinedload
 
-from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel
+from database import CartItemModel, CartModel, OrderItemModel, OrderModel
 
 
 async def get_user_orders(db: AsyncSession, user_id: int):
@@ -66,7 +66,11 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
 
 
 async def cancel_order(db: AsyncSession, order_id: int, user_id: int):
-    order = await db.scalar(select(OrderModel).where(OrderModel.id == order_id, OrderModel.user_id == user_id))
+    order = await db.scalar(
+        select(OrderModel)
+        .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
+        .where(OrderModel.id == order_id)
+    )
     if not order:
         return None, "Order not found."
     if order.status != "pending":

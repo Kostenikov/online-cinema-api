@@ -1,17 +1,17 @@
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import joinedload
 
 from database import UserModel, get_db
-from database.models.accounts import UserGroupEnum
-from database.models.orders import OrderModel
+from database.models.orders import OrderModel, OrderItemModel
 from repository.orders import cancel_order, create_order_from_cart, get_user_orders
 from schemas.orders import (
     OrderCreateResponseSchema,
     OrderItemResponseSchema,
     OrderResponseSchema,
 )
-from security.permissions import get_current_user
+from security.permissions import get_current_user, require_moderator
 
 router = APIRouter()
 
@@ -29,11 +29,11 @@ async def get_orders(
     orders = await get_user_orders(db, user.id)
     return [
         OrderResponseSchema(
-            id=o.id,
-            user_id=o.user_id,
-            created_at=o.created_at,
-            total_amount=o.total_amount,
-            status=o.status,
+            id=order.id,
+            user_id=order.user_id,
+            created_at=order.created_at,
+            total_amount=order.total_amount,
+            status=order.status,
             order_items=[
                 OrderItemResponseSchema(
                     id=item.id,
@@ -41,10 +41,10 @@ async def get_orders(
                     title=item.movie.name,
                     price_at_order=item.price_at_order,
                 )
-                for item in o.order_items
+                for item in order.order_items
             ],
         )
-        for o in orders
+        for order in orders
     ]
 
 
@@ -86,7 +86,22 @@ async def cancel_order_route(
     order, error = await cancel_order(db, order_id, user.id)
     if error:
         raise HTTPException(status_code=400, detail=error)
-    return order
+    return OrderResponseSchema(
+        id=order.id,
+        user_id=order.user_id,
+        created_at=order.created_at,
+        total_amount=order.total_amount,
+        status=order.status,
+        order_items=[
+            OrderItemResponseSchema(
+                id=item.id,
+                movie_id=item.movie_id,
+                title=item.movie.name,
+                price_at_order=item.price_at_order,
+            )
+            for item in order.order_items
+        ],
+    )
 
 
 @router.get(
@@ -98,15 +113,9 @@ async def cancel_order_route(
 async def get_all_orders_admin(
     user_id: int | None = Query(None, description="Filter by user ID"),
     db: AsyncSession = Depends(get_db),
-    current_user: UserModel = Depends(get_current_user),
+    current_user: UserModel = Depends(require_moderator),
 ):
-    if not current_user.has_group(UserGroupEnum.ADMIN):
-        raise HTTPException(
-            status_code=status.HTTP_403_FORBIDDEN,
-            detail="Admin access required.",
-        )
-
-    query = select(OrderModel).order_by(OrderModel.created_at.desc())
+    query = select(OrderModel).options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie)).order_by(OrderModel.created_at.desc())
     if user_id:
         query = query.filter(OrderModel.user_id == user_id)
 
@@ -115,11 +124,11 @@ async def get_all_orders_admin(
 
     return [
         OrderResponseSchema(
-            id=o.id,
-            user_id=o.user_id,
-            created_at=o.created_at,
-            total_amount=o.total_amount,
-            status=o.status,
+            id=order.id,
+            user_id=order.user_id,
+            created_at=order.created_at,
+            total_amount=order.total_amount,
+            status=order.status,
             order_items=[
                 OrderItemResponseSchema(
                     id=item.id,
@@ -127,8 +136,8 @@ async def get_all_orders_admin(
                     title=item.movie.name,
                     price_at_order=item.price_at_order,
                 )
-                for item in o.order_items
+                for item in order.order_items
             ],
         )
-        for o in orders
+        for order in orders
     ]
