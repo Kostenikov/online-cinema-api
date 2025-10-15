@@ -5,21 +5,127 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import CertificationModel, DirectorModel, GenreModel, MovieModel, StarModel, UserModel, get_db
 from repository.movies import (
+    get_genre_or_404,
+    get_genres,
     get_movie,
     get_movie_or_404,
     get_movies,
     get_number_of_movies,
     get_or_create,
+    get_star_or_404,
+    get_stars,
 )
 from schemas.movies import (
+    GenreCreate,
+    GenreDetail,
+    GenreUpdate,
     MovieCreateSchema,
     MovieDetail,
     MovieListResponseSchema,
     MovieUpdateSchema,
+    StarCreate,
+    StarDetail,
+    StarUpdate,
 )
 from security.permissions import require_admin, require_moderator, require_user
 
 router = APIRouter()
+
+
+@router.get("/genres/", response_model=list[GenreDetail])
+async def list_genres(
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_genres(db)
+
+
+@router.post("/genres/", response_model=GenreDetail, status_code=status.HTTP_201_CREATED)
+async def create_genre(
+    genre: GenreCreate,
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+):
+    new_genre = GenreModel(name=genre.name)
+    db.add(new_genre)
+    await db.commit()
+    await db.refresh(new_genre)
+    return new_genre
+
+
+@router.patch("/genres/{genre_id}/", response_model=GenreDetail)
+async def update_genre(
+    genre_id: int,
+    genre_data: GenreUpdate,
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+):
+    genre = await get_genre_or_404(genre_id, db)
+    data = genre_data.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(genre, key, value)
+    await db.commit()
+    await db.refresh(genre)
+    return genre
+
+
+@router.delete("/genres/{genre_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_genre(
+    genre_id: int,
+    current_user: Annotated[UserModel, Depends(require_admin)],
+    db: AsyncSession = Depends(get_db),
+):
+    genre = await get_genre_or_404(genre_id, db)
+    await db.delete(genre)
+    await db.commit()
+
+
+@router.get("/stars/", response_model=list[StarDetail])
+async def list_stars(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    db: AsyncSession = Depends(get_db),
+):
+    return await get_stars(db)
+
+
+@router.post("/stars/", response_model=StarDetail, status_code=status.HTTP_201_CREATED)
+async def create_star(
+    star: StarCreate,
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+):
+    new_star = StarModel(name=star.name)
+    db.add(new_star)
+    await db.commit()
+    await db.refresh(new_star)
+    return new_star
+
+
+@router.patch("/stars/{star_id}/", response_model=StarDetail)
+async def update_star(
+    star_id: int,
+    star_data: StarUpdate,
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+):
+    star = await get_star_or_404(star_id, db)
+    data = star_data.model_dump(exclude_unset=True)
+    for key, value in data.items():
+        setattr(star, key, value)
+    await db.commit()
+    await db.refresh(star)
+    return star
+
+
+@router.delete("/stars/{star_id}/", status_code=status.HTTP_204_NO_CONTENT)
+async def delete_star(
+    star_id: int,
+    current_user: Annotated[UserModel, Depends(require_admin)],
+    db: AsyncSession = Depends(get_db),
+):
+    star = await get_star_or_404(star_id, db)
+    await db.delete(star)
+    await db.commit()
 
 
 @router.get(
@@ -155,7 +261,7 @@ async def movie_detail(
     },
 )
 async def delete_movie(
-    current_user: Annotated[UserModel, Depends(require_moderator)],
+    current_user: Annotated[UserModel, Depends(require_admin)],
     movie_id: int,
     db: AsyncSession = Depends(get_db),
 ):
