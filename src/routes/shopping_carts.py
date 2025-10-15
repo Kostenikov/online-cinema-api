@@ -89,7 +89,7 @@ async def get_cart(
 
 
 @router.post(
-    "/cart/items/",
+    "/cart/items/{item_id}/",
     name="add_item_to_cart",
     response_model=MessageResponseSchema,
     summary="Add item to cart",
