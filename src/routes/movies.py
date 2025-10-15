@@ -1,13 +1,16 @@
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
+    CartItemModel,
     CertificationModel,
     DirectorModel,
     GenreModel,
     MovieModel,
+    OrderItemModel,
     ReactionTypeEnum,
     StarModel,
     UserModel,
@@ -298,6 +301,10 @@ async def movie_detail(
     description="Delete a movie by ID. Requires moderator or admin privileges.",
     responses={
         204: {"description": "Movie deleted successfully."},
+        400: {
+            "description": "Movie you try to delete in someones cart.",
+            "content": {"application/json": {"example": {"detail": "Movie you try to delete in someones cart."}}},
+        },
         404: {
             "description": "Movie not found.",
             "content": {"application/json": {"example": {"detail": "Movie not found."}}},
@@ -309,6 +316,20 @@ async def delete_movie(
     movie_id: int,
     db: AsyncSession = Depends(get_db),
 ):
+    stmt = union(
+        select(CartItemModel.cart_id).where(CartItemModel.movie_id == movie_id),
+        select(OrderItemModel.order_id).where(OrderItemModel.movie_id == movie_id),
+    )
+
+    result = await db.scalars(stmt)
+    movie_in_use = result.all()
+
+    if movie_in_use:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Movie you try to delete is used in someone's cart or order.",
+        )
+
     movie = await get_movie_or_404(movie_id, db)
     await db.delete(movie)
     await db.commit()

@@ -46,7 +46,7 @@ app.include_router(fe_router, prefix="/fe")
 app.include_router(
     shopping_carts_router,
     prefix=f"{api_version_prefix}/shopping-carts",
-    tags=["shopping-carts"],
+    tags=["Shopping carts"],
 )
 app.include_router(
     movies_router,
