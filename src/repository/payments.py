@@ -45,8 +45,8 @@ class StripePaymentService(BasePaymentService):
                     }
                 ],
                 mode="payment",
-                success_url=f"{settings.DOMAIN}/payment/success?session_id={{CHECKOUT_SESSION_ID}}",
-                cancel_url=f"{settings.DOMAIN}/payment/cancel",
+                success_url=f"{settings.DOMAIN}/api/v1/payments/success?session_id={{CHECKOUT_SESSION_ID}}",
+                cancel_url=f"{settings.DOMAIN}/api/v1/payments/cancel",
             )
 
             payment = PaymentModel(
