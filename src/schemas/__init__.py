@@ -10,6 +10,10 @@ from schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
 )
+from schemas.profiles import (
+    ProfileCreateRequestSchema,
+    ProfileCreateResponseSchema,
+)
 from schemas.shopping_carts import (
     CartItemResponseSchema,
     CartResponseSchema,
