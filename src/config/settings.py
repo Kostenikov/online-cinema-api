@@ -39,10 +39,6 @@ class BaseAppSettings(BaseSettings):
     STRIPE_WEBHOOK_SECRET: str = os.getenv("STRIPE_WEBHOOK_SECRET", "")
     DOMAIN: str = os.getenv("DOMAIN", "http://localhost:8000")
 
-    @property
-    def S3_STORAGE_ENDPOINT(self) -> str:
-        return f"http://{self.S3_STORAGE_HOST}:{self.S3_STORAGE_PORT}"
-
 
 class Settings(BaseAppSettings):
     POSTGRES_USER: str = os.getenv("POSTGRES_USER", "test_user")
