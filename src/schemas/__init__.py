@@ -11,8 +11,8 @@ from schemas.accounts import (
     UserRegistrationResponseSchema,
 )
 from schemas.profiles import (
-    ProfileCreateRequestSchema,
-    ProfileCreateResponseSchema,
+    ProfileCreateSchema,
+    ProfileResponseSchema,
 )
 from schemas.shopping_carts import (
     CartItemResponseSchema,

@@ -580,7 +580,7 @@ async def test_profile_creation_invalid_gender(client, jwt_manager):
     response = await client.post(profile_url, headers=headers, files=files)
 
     assert response.status_code == 422, f"Expected 422, got {response.status_code}"
-    assert "Gender must be one of" in str(response.json()), f"Unexpected error message: {response.json()}"
+    assert "Input should be 'man' or 'woman'" in str(response.json()), f"Unexpected error message: {response.json()}"
 
 
 @pytest.mark.asyncio
