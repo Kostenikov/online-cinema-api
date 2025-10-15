@@ -327,8 +327,10 @@ async def movie_detail(
     responses={
         204: {"description": "Movie deleted successfully."},
         400: {
-            "description": "Movie you try to delete in someones cart.",
-            "content": {"application/json": {"example": {"detail": "Movie you try to delete in someones cart."}}},
+            "description": "Movie you try to delete in someones cart or order.",
+            "content": {
+                "application/json": {"example": {"detail": "Movie you try to delete in someones cart or order."}}
+            },
         },
         404: {
             "description": "Movie not found.",
