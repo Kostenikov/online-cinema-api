@@ -1,13 +1,58 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
-from database import CartItemModel, MovieModel, OrderItemModel, OrderModel, UserModel, get_db
+from database import CartItemModel, MovieModel, OrderItemModel, OrderModel, UserModel, get_db, CartModel
 from repository import create_shopping_cart, get_shopping_cart
 from schemas import CartItemResponseSchema, CartResponseSchema, MessageResponseSchema
-from security.permissions import get_current_user
+from security.permissions import get_current_user, require_moderator
 
 router = APIRouter()
+
+
+@router.get(
+    "/",
+    name="moderator_get_carts",
+    response_model=list[CartResponseSchema],
+    summary="Get shopping all carts of users",
+    status_code=status.HTTP_200_OK,
+)
+async def get_carts(
+    current_user: Annotated[UserModel, Depends(require_moderator)],
+    db: AsyncSession = Depends(get_db),
+
+) -> list[CartResponseSchema]:
+    """
+    Fetch the shopping carts of all users for moderator.
+
+    Args:
+        current_user (UserModel): The current moderator user.
+        db (AsyncSession): The database session.
+
+    Returns:
+        list[CartResponseSchema]: The shopping cart data, including items if any.
+    """
+    res = await db.scalars(
+        select(CartModel)
+        .options(
+            selectinload(CartModel.cart_items)
+            .selectinload(CartItemModel.movie)
+            .selectinload(MovieModel.genres)
+        )
+    )
+    carts = res.all()
+
+    return [
+        CartResponseSchema(
+            id=cart.id,
+            user_id=cart.user_id,
+            cart_items=[CartItemResponseSchema.from_cart_item(item) for item in cart.cart_items],
+        )
+        for cart in carts
+    ]
 
 
 @router.get(
@@ -18,7 +63,6 @@ router = APIRouter()
     status_code=status.HTTP_200_OK,
     responses={
         200: {"description": "Cart retrieved successfully."},
-        404: {"description": "Cart not found for the user."},
     },
 )
 async def get_cart(
