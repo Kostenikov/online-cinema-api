@@ -1,5 +1,6 @@
 from schemas.accounts import (
     ChangePasswordRequestSchema,
+    ChangeUserRoleRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,

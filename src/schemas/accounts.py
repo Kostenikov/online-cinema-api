@@ -1,6 +1,6 @@
 from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
-from database import accounts_validators
+from database import UserGroupEnum, accounts_validators
 
 
 class BaseEmailPasswordSchema(BaseModel):
@@ -79,3 +79,8 @@ class ChangePasswordRequestSchema(BaseModel):
     @classmethod
     def validate_password(cls, value):
         return accounts_validators.validate_password_strength(value)
+
+
+class ChangeUserRoleRequestSchema(BaseModel):
+    user_id: int = Field(0, description="ID of the user whose role will be changed")
+    new_role: UserGroupEnum = Field("user", description="New role to assign (admin, moderator, user)")

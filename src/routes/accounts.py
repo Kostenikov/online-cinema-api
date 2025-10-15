@@ -28,6 +28,7 @@ from exceptions import BaseSecurityError
 from notifications import EmailSenderInterface
 from schemas import (
     ChangePasswordRequestSchema,
+    ChangeUserRoleRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,
@@ -715,6 +716,60 @@ async def logout_user(
         )
 
     return MessageResponseSchema(message="Logged out successfully")
+
+
+@router.post(
+    "/change-role/",
+    name="change_user_role",
+    response_model=MessageResponseSchema,
+    summary="Change user role (admin only)",
+    description="Allows admins to change the role of a user by their user_id.",
+    status_code=status.HTTP_200_OK,
+    responses={
+        403: {"description": "Forbidden - Only admins can change roles."},
+        404: {"description": "Not Found - User or role not found."},
+        500: {"description": "Internal Server Error - Database error occurred."},
+    },
+)
+async def change_user_role(
+    data: ChangeUserRoleRequestSchema,
+    current_admin: Annotated[UserModel, Depends(require_admin)],
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseSchema:
+    """
+    Endpoint for changing a user's role.
+
+    - Requires the authenticated user to be an **admin**.
+    - Updates the target user's `group_id` based on the provided role.
+    """
+    stmt = select(UserModel).where(UserModel.id == data.user_id)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    if user.id == current_admin.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot change your role.")
+
+    stmt = select(UserGroupModel).where(UserGroupModel.name == data.new_role)
+    result = await db.execute(stmt)
+    role = result.scalars().first()
+    if not role:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found.")
+
+    user.group_id = role.id
+
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the user's role.",
+        )
+
+    return MessageResponseSchema(message=f"Users role was changed to {data.new_role}")
 
 
 @router.get(
