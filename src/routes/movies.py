@@ -5,6 +5,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
+    CartItemModel,
     CertificationModel,
     DirectorModel,
     GenreModel,
@@ -12,7 +13,7 @@ from database import (
     ReactionTypeEnum,
     StarModel,
     UserModel,
-    get_db, CartItemModel,
+    get_db,
 )
 from repository.movies import (
     get_genre_or_404,

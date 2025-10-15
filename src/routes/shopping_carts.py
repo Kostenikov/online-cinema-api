@@ -5,7 +5,7 @@ from sqlalchemy import delete, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
-from database import CartItemModel, MovieModel, OrderItemModel, OrderModel, UserModel, get_db, CartModel
+from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel, UserModel, get_db
 from repository import create_shopping_cart, get_shopping_cart
 from schemas import CartItemResponseSchema, CartResponseSchema, MessageResponseSchema
 from security.permissions import get_current_user, require_moderator
@@ -23,7 +23,6 @@ router = APIRouter()
 async def get_carts(
     current_user: Annotated[UserModel, Depends(require_moderator)],
     db: AsyncSession = Depends(get_db),
-
 ) -> list[CartResponseSchema]:
     """
     Fetch the shopping carts of all users for moderator.
@@ -36,11 +35,8 @@ async def get_carts(
         list[CartResponseSchema]: The shopping cart data, including items if any.
     """
     res = await db.scalars(
-        select(CartModel)
-        .options(
-            selectinload(CartModel.cart_items)
-            .selectinload(CartItemModel.movie)
-            .selectinload(MovieModel.genres)
+        select(CartModel).options(
+            selectinload(CartModel.cart_items).selectinload(CartItemModel.movie).selectinload(MovieModel.genres)
         )
     )
     carts = res.all()
