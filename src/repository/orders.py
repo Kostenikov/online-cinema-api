@@ -1,4 +1,3 @@
-from datetime import datetime
 from decimal import Decimal
 
 from sqlalchemy import select
@@ -32,8 +31,8 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
 
     for item in cart.cart_items:
         movie = item.movie
-        if not movie or movie.is_deleted or getattr(movie, "region_locked", False):
-            excluded_items.append(movie.name if movie else "Unknown movie")
+        if not movie:
+            excluded_items.append("Unknown movie")
         else:
             available_items.append(item)
 
@@ -44,7 +43,6 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
 
     new_order = OrderModel(
         user_id=user_id,
-        created_at=datetime.utcnow(),
         status="pending",
         total_amount=total_amount,
     )
