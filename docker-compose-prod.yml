@@ -167,6 +167,17 @@ services:
     networks:
       - cinema_network
 
+  stripe-cli:
+    image: stripe/stripe-cli
+    command: [ "listen", "--api-key", "${STRIPE_SECRET_KEY}", "--forward-to", "http://backend_cinema:8000/api/v1/payments/stripe_webhook/" ]
+    depends_on:
+      - web
+    environment:
+      - STRIPE_SECRET_KEY=${STRIPE_SECRET_KEY}
+    networks:
+      - cinema_network
+
+
   nginx:
     build:
       context: .
