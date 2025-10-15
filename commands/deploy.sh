@@ -12,13 +12,17 @@ handle_error() {
 # Navigate to the application directory
 cd /home/ubuntu/src/online-cinema-api || handle_error "Failed to navigate to the application directory."
 
+# Checkout the dev branch
+echo "Switching to the dev branch..."
+git checkout dev || handle_error "Failed to checkout the dev branch."
+
 # Fetch the latest changes from the remote repository
 echo "Fetching the latest changes from the remote repository..."
-git fetch origin main || handle_error "Failed to fetch updates from the 'origin' remote."
+git fetch origin dev || handle_error "Failed to fetch updates from the 'origin' remote."
 
-# Reset the local repository to match the remote 'main' branch
-echo "Resetting the local repository to match 'origin/main'..."
-git reset --hard origin/main || handle_error "Failed to reset the local repository to 'origin/main'."
+# Reset the local repository to match the remote 'dev' branch
+echo "Resetting the local repository to match 'origin/dev'..."
+git reset --hard origin/dev || handle_error "Failed to reset the local repository to 'origin/dev'."
 
 # (Optional) Pull any new tags from the remote repository
 echo "Fetching tags from the remote repository..."
