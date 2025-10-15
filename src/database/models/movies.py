@@ -171,8 +171,8 @@ class Reaction(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
-    content_type: Mapped[str] = mapped_column(String(50), nullable=False)  # "movie" or "comment"
-    object_id: Mapped[int] = mapped_column(nullable=False)  # movie_id or comment_id
+    content_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    object_id: Mapped[int] = mapped_column(nullable=False)
     reaction_type: Mapped[ReactionTypeEnum] = mapped_column(Enum(ReactionTypeEnum), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "content_type", "object_id"),)
