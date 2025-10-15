@@ -1,7 +1,8 @@
+import enum
 import uuid
 from typing import Optional
 
-from sqlalchemy import DECIMAL, Column, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import DECIMAL, Column, Enum, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -158,3 +159,20 @@ class MovieModel(Base):
 
     def __repr__(self):
         return f"<Movie(name='{self.name}', year={self.year}, score={self.meta_score})>"
+
+
+class ReactionTypeEnum(str, enum.Enum):
+    LIKE = "like"
+    DISLIKE = "dislike"
+
+
+class Reaction(Base):
+    __tablename__ = "reactions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    content_type: Mapped[str] = mapped_column(String(50), nullable=False)
+    object_id: Mapped[int] = mapped_column(nullable=False)
+    reaction_type: Mapped[ReactionTypeEnum] = mapped_column(Enum(ReactionTypeEnum), nullable=False)
+
+    __table_args__ = (UniqueConstraint("user_id", "content_type", "object_id"),)

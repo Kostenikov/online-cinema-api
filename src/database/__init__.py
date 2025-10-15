@@ -17,6 +17,8 @@ from database.models.movies import (
     StarModel,
     CertificationModel,
     MovieModel,
+    Reaction,
+    ReactionTypeEnum,
 )
 from database.models.shopping_carts import (
     CartModel,

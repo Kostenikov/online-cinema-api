@@ -3,7 +3,16 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import CertificationModel, DirectorModel, GenreModel, MovieModel, StarModel, UserModel, get_db
+from database import (
+    CertificationModel,
+    DirectorModel,
+    GenreModel,
+    MovieModel,
+    ReactionTypeEnum,
+    StarModel,
+    UserModel,
+    get_db,
+)
 from repository.movies import (
     get_genre_or_404,
     get_genres,
@@ -14,6 +23,7 @@ from repository.movies import (
     get_or_create,
     get_star_or_404,
     get_stars,
+    toggle_reaction,
 )
 from schemas.movies import (
     GenreCreate,
@@ -32,15 +42,24 @@ from security.permissions import require_admin, require_moderator, require_user
 router = APIRouter()
 
 
-@router.get("/genres/", response_model=list[GenreDetail])
+@router.get(
+    "/genres/",
+    description="Retrieve a list of all genres.",
+    response_model=list[GenreDetail],
+)
 async def list_genres(
-    current_user: Annotated[UserModel, Depends(require_moderator)],
+    current_user: Annotated[UserModel, Depends(require_user)],
     db: AsyncSession = Depends(get_db),
 ):
     return await get_genres(db)
 
 
-@router.post("/genres/", response_model=GenreDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/genres/",
+    description="Create a new genre entry. Requires moderator or admin privileges.",
+    response_model=GenreDetail,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_genre(
     genre: GenreCreate,
     current_user: Annotated[UserModel, Depends(require_moderator)],
@@ -53,7 +72,11 @@ async def create_genre(
     return new_genre
 
 
-@router.patch("/genres/{genre_id}/", response_model=GenreDetail)
+@router.patch(
+    "/genres/{genre_id}/",
+    description="Modify one or more fields of a genre. Requires moderator or admin privileges.",
+    response_model=GenreDetail,
+)
 async def update_genre(
     genre_id: int,
     genre_data: GenreUpdate,
@@ -69,7 +92,11 @@ async def update_genre(
     return genre
 
 
-@router.delete("/genres/{genre_id}/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/genres/{genre_id}/",
+    description="Delete a genre by ID. Requires moderator or admin privileges.",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_genre(
     genre_id: int,
     current_user: Annotated[UserModel, Depends(require_admin)],
@@ -80,7 +107,11 @@ async def delete_genre(
     await db.commit()
 
 
-@router.get("/stars/", response_model=list[StarDetail])
+@router.get(
+    "/stars/",
+    description="Retrieve a list of all stars.",
+    response_model=list[StarDetail],
+)
 async def list_stars(
     current_user: Annotated[UserModel, Depends(require_user)],
     db: AsyncSession = Depends(get_db),
@@ -88,7 +119,12 @@ async def list_stars(
     return await get_stars(db)
 
 
-@router.post("/stars/", response_model=StarDetail, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/stars/",
+    description="Create a new star entry. Requires moderator or admin privileges.",
+    response_model=StarDetail,
+    status_code=status.HTTP_201_CREATED,
+)
 async def create_star(
     star: StarCreate,
     current_user: Annotated[UserModel, Depends(require_moderator)],
@@ -101,7 +137,11 @@ async def create_star(
     return new_star
 
 
-@router.patch("/stars/{star_id}/", response_model=StarDetail)
+@router.patch(
+    "/stars/{star_id}/",
+    description="Modify one or more fields of a star. Requires moderator or admin privileges.",
+    response_model=StarDetail,
+)
 async def update_star(
     star_id: int,
     star_data: StarUpdate,
@@ -117,7 +157,11 @@ async def update_star(
     return star
 
 
-@router.delete("/stars/{star_id}/", status_code=status.HTTP_204_NO_CONTENT)
+@router.delete(
+    "/stars/{star_id}/",
+    description="Delete a star by ID. Requires moderator or admin privileges.",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
 async def delete_star(
     star_id: int,
     current_user: Annotated[UserModel, Depends(require_admin)],
@@ -323,3 +367,28 @@ async def update_movie(
         raise HTTPException(status_code=400, detail="Invalid input data.")
 
     return {"detail": "Movie updated successfully."}
+
+
+@router.post(
+    "/{movie_id}/react/",
+    description="Like or dislike a movie.",
+    response_model=dict,
+    responses={
+        200: {"description": "Movie reaction updated successfully."},
+        404: {
+            "description": "Movie not found.",
+            "content": {"application/json": {"example": {"detail": "Movie not found."}}},
+        },
+    },
+)
+async def react_movie(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    movie_id: int,
+    action: ReactionTypeEnum,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_movie_or_404(movie_id, db)
+
+    return await toggle_reaction(
+        db=db, user_id=current_user.id, content_type="movie", object_id=movie_id, action=action
+    )
