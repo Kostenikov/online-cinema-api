@@ -101,8 +101,8 @@ class MovieListResponseSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class MovieCreateSchema(BaseModel):
-    name: str
+class MovieCreateSchema(MovieBaseSchema):
+    name: str = Field(max_length=255)
     year: int
     time: int = Field(ge=1)
     imdb: float = Field(ge=0, le=10)
