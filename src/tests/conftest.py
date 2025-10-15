@@ -5,7 +5,7 @@ from sqlalchemy import insert, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config import get_accounts_email_notificator, get_s3_storage_client, get_settings
-from database import UserGroupEnum, UserGroupModel, get_db_contextmanager, reset_database, UserModel, MovieModel
+from database import MovieModel, UserGroupEnum, UserGroupModel, UserModel, get_db_contextmanager, reset_database
 from database.populate import CSVDatabaseSeeder
 from main import app
 from security.interfaces import JWTAuthManagerInterface
@@ -204,7 +204,7 @@ async def seed_database(db_session):
 @pytest_asyncio.fixture(scope="function")
 async def user(db_session):
     user = UserModel.create(
-        email="test@example.com",
+        email="user@example.com",
         raw_password="Strongpassword!123",
         group_id=1,
     )
@@ -218,7 +218,7 @@ async def user(db_session):
 @pytest_asyncio.fixture(scope="function")
 async def moderator(db_session):
     moderator = UserModel.create(
-        email="test@example.com",
+        email="moderator@example.com",
         raw_password="Strongpassword!123",
         group_id=2,
     )
@@ -232,11 +232,18 @@ async def moderator(db_session):
 @pytest_asyncio.fixture(scope="function")
 async def movie(db_session):
     movie = MovieModel(
-        name="test", year=2015, time=90, imdb=8.0, votes=2, meta_score=8.0,
-        gross=5.0, price=228.0, description="dsc", certification_id=1,
+        name="test",
+        year=2015,
+        time=90,
+        imdb=8.0,
+        votes=2,
+        meta_score=8.0,
+        gross=5.0,
+        price=228.0,
+        description="dsc",
+        certification_id=1,
     )
     db_session.add(movie)
     await db_session.commit()
     await db_session.refresh(movie)
     return movie
-

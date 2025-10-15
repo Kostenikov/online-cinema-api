@@ -11,6 +11,7 @@ from security.interfaces import JWTAuthManagerInterface
 @pytest.mark.asyncio
 class TestGetCarts:
     """Test suite for GET /carts/ endpoint."""
+
     async def test_get_carts_user(
         self,
         user: UserModel,
@@ -27,12 +28,12 @@ class TestGetCarts:
         access_token = jwt_manager.create_access_token({"user_id": user.id})
 
         response = await client.get(
-            app.url_path_for("get_carts"),
+            app.url_path_for("moderator_get_carts"),
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
         assert response.status_code == 403
-        assert response.json()["detail"] == "Only moderators can get carts."
+        assert response.json()["detail"] == "Admin or moderator role required"
 
     async def test_get_carts_no_carts_exists(
         self,
@@ -43,24 +44,59 @@ class TestGetCarts:
         seed_user_groups: AsyncSession,
     ):
         """
-        Test that fetching carts when no carts exists returns status 404.
+        Test that fetching carts when no carts exist returns status 404.
 
         Create moderator user and get all carts
         """
         access_token = jwt_manager.create_access_token({"user_id": moderator.id})
 
         response = await client.get(
-            app.url_path_for("get_carts"),
+            app.url_path_for("moderator_get_carts"),
             headers={"Authorization": f"Bearer {access_token}"},
         )
 
-        assert response.status_code == 404
-        assert response.json()["detail"] == "Not found."
+        assert response.status_code == 200
+        assert response.json() == []
+
+    async def test_get_carts(
+        self,
+        user: UserModel,
+        moderator: UserModel,
+        movie: MovieModel,
+        client: AsyncClient,
+        db_session: AsyncSession,
+        jwt_manager: JWTAuthManagerInterface,
+        seed_user_groups: AsyncSession,
+    ):
+        """
+        Test if moderator can see users carts by fetching.
+
+        Create moderator, user and get all carts.
+        """
+        cart = CartModel(user_id=user.id)
+        db_session.add(cart)
+        await db_session.commit()
+        await db_session.refresh(cart)
+
+        cart_item = CartItemModel(cart_id=cart.id, movie_id=movie.id)
+        db_session.add(cart_item)
+        await db_session.commit()
+
+        access_token = jwt_manager.create_access_token({"user_id": moderator.id})
+
+        response = await client.get(
+            app.url_path_for("moderator_get_carts"),
+            headers={"Authorization": f"Bearer {access_token}"},
+        )
+
+        assert response.status_code == 200
+        assert len(response.json()) == 1
 
 
 @pytest.mark.asyncio
 class TestGetCart:
     """Test suite for GET /cart/ endpoint."""
+
     async def test_get_cart_creates_new_cart_if_not_exists(
         self,
         user: UserModel,
@@ -146,6 +182,7 @@ class TestGetCart:
 @pytest.mark.asyncio
 class TestAddItemToCart:
     """Test suite for POST /cart/items/ endpoint."""
+
     async def test_add_item_to_cart_success(
         self,
         user: UserModel,
@@ -311,6 +348,7 @@ class TestAddItemToCart:
 @pytest.mark.asyncio
 class TestRemoveItemFromCart:
     """Test suite for DELETE /cart/items/{item_id}/ endpoint."""
+
     async def test_remove_item_from_cart_success(
         self,
         user: UserModel,
@@ -381,6 +419,7 @@ class TestRemoveItemFromCart:
 @pytest.mark.asyncio
 class TestClearCart:
     """Test suite for DELETE /cart/clear/ endpoint."""
+
     async def test_clear_cart_success(
         self,
         user: UserModel,
@@ -416,9 +455,7 @@ class TestClearCart:
 
         assert response.status_code == 204
 
-        remaining_items = await db_session.scalars(
-            select(CartItemModel).where(CartItemModel.cart_id == cart.id)
-        )
+        remaining_items = await db_session.scalars(select(CartItemModel).where(CartItemModel.cart_id == cart.id))
         assert len(list(remaining_items)) == 0
 
     async def test_clear_empty_cart_success(
