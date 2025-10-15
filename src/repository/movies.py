@@ -1,20 +1,88 @@
-from typing import Sequence, TypeVar
+from typing import Optional, Sequence, TypeVar
 
 from fastapi import HTTPException
-from sqlalchemy import func, select
+from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import Base, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
+from database import Base, DirectorModel, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
 
 T = TypeVar("T", bound=Base)
 
 
-async def get_movies(per_page: int, page: int, db: AsyncSession) -> Sequence[MovieModel]:
-    movies = await db.execute(
-        select(MovieModel).order_by(MovieModel.id.desc()).offset((page - 1) * per_page).limit(per_page)
+async def get_movies(
+    per_page: int,
+    page: int,
+    db: AsyncSession,
+    year_from: Optional[int] = None,
+    year_to: Optional[int] = None,
+    imdb_min: Optional[float] = None,
+    imdb_max: Optional[float] = None,
+    votes_min: Optional[int] = None,
+    votes_max: Optional[int] = None,
+    meta_score_min: Optional[float] = None,
+    meta_score_max: Optional[float] = None,
+    sort_by: Optional[str] = None,
+    sort_order: str = "desc",
+    search: Optional[str] = None,
+) -> Sequence[MovieModel]:
+    query = select(MovieModel)
+
+    query = query.options(
+        joinedload(MovieModel.genres),
+        joinedload(MovieModel.directors),
+        joinedload(MovieModel.stars),
+        joinedload(MovieModel.certification),
     )
-    return movies.scalars().all()
+
+    if year_from is not None:
+        query = query.where(MovieModel.year >= year_from)
+    if year_to is not None:
+        query = query.where(MovieModel.year <= year_to)
+    if imdb_min is not None:
+        query = query.where(MovieModel.imdb >= imdb_min)
+    if imdb_max is not None:
+        query = query.where(MovieModel.imdb <= imdb_max)
+    if votes_min is not None:
+        query = query.where(MovieModel.votes >= votes_min)
+    if votes_max is not None:
+        query = query.where(MovieModel.votes <= votes_max)
+    if meta_score_min is not None:
+        query = query.where(MovieModel.meta_score >= meta_score_min)
+    if meta_score_max is not None:
+        query = query.where(MovieModel.meta_score <= meta_score_max)
+
+    if sort_by:
+        sort_by = sort_by.lower()
+        if sort_by in MovieModel.__table__.columns.keys():
+            column = getattr(MovieModel, sort_by)
+            query = query.order_by(desc(column) if sort_order == "desc" else asc(column))
+        else:
+            query = query.order_by(MovieModel.id.desc())
+    else:
+        query = query.order_by(MovieModel.id.desc())
+
+    if search:
+        search_pattern = f"%{search}%"
+        query = (
+            query.join(MovieModel.stars, isouter=True)
+            .join(MovieModel.directors, isouter=True)
+            .join(MovieModel.genres, isouter=True)
+        )
+        query = query.where(
+            or_(
+                MovieModel.name.ilike(search_pattern),
+                MovieModel.description.ilike(search_pattern),
+                StarModel.name.ilike(search_pattern),
+                GenreModel.name.ilike(search_pattern),
+                DirectorModel.name.ilike(search_pattern),
+            )
+        )
+
+    query = query.offset((page - 1) * per_page).limit(per_page)
+
+    result = await db.execute(query)
+    return result.unique().scalars().all()
 
 
 async def get_number_of_movies(db: AsyncSession) -> int:

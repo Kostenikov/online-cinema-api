@@ -1,4 +1,4 @@
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy import select, union
@@ -64,8 +64,8 @@ async def list_genres(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_genre(
-    genre: GenreCreate,
     current_user: Annotated[UserModel, Depends(require_moderator)],
+    genre: GenreCreate,
     db: AsyncSession = Depends(get_db),
 ):
     new_genre = GenreModel(name=genre.name)
@@ -81,9 +81,9 @@ async def create_genre(
     response_model=GenreDetail,
 )
 async def update_genre(
+    current_user: Annotated[UserModel, Depends(require_moderator)],
     genre_id: int,
     genre_data: GenreUpdate,
-    current_user: Annotated[UserModel, Depends(require_moderator)],
     db: AsyncSession = Depends(get_db),
 ):
     genre = await get_genre_or_404(genre_id, db)
@@ -101,8 +101,8 @@ async def update_genre(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_genre(
-    genre_id: int,
     current_user: Annotated[UserModel, Depends(require_admin)],
+    genre_id: int,
     db: AsyncSession = Depends(get_db),
 ):
     genre = await get_genre_or_404(genre_id, db)
@@ -129,8 +129,8 @@ async def list_stars(
     status_code=status.HTTP_201_CREATED,
 )
 async def create_star(
-    star: StarCreate,
     current_user: Annotated[UserModel, Depends(require_moderator)],
+    star: StarCreate,
     db: AsyncSession = Depends(get_db),
 ):
     new_star = StarModel(name=star.name)
@@ -146,9 +146,9 @@ async def create_star(
     response_model=StarDetail,
 )
 async def update_star(
+    current_user: Annotated[UserModel, Depends(require_moderator)],
     star_id: int,
     star_data: StarUpdate,
-    current_user: Annotated[UserModel, Depends(require_moderator)],
     db: AsyncSession = Depends(get_db),
 ):
     star = await get_star_or_404(star_id, db)
@@ -166,8 +166,8 @@ async def update_star(
     status_code=status.HTTP_204_NO_CONTENT,
 )
 async def delete_star(
-    star_id: int,
     current_user: Annotated[UserModel, Depends(require_admin)],
+    star_id: int,
     db: AsyncSession = Depends(get_db),
 ):
     star = await get_star_or_404(star_id, db)
@@ -191,18 +191,43 @@ async def list_movies(
     current_user: Annotated[UserModel, Depends(require_user)],
     page: int = Query(1, ge=1),
     per_page: int = Query(10, ge=1, le=20),
+    year_from: int = Query(None),
+    year_to: int = Query(None),
+    imdb_min: float = Query(None, ge=0, le=10),
+    imdb_max: float = Query(None, ge=0, le=10),
+    votes_min: Optional[int] = None,
+    votes_max: Optional[int] = None,
+    meta_score_min: Optional[float] = None,
+    meta_score_max: Optional[float] = None,
+    sort_by: Optional[str] = Query(None, description="Field to sort by, price, year, imdb, votes"),
+    sort_order: str = Query("desc", description="Sort order: 'asc' or 'desc'"),
+    search: Optional[str] = Query(None, description="Search movies by title, description, actor, or director"),
     db: AsyncSession = Depends(get_db),
 ):
-
-    movies = await get_movies(per_page, page, db)
+    movies = await get_movies(
+        per_page=per_page,
+        page=page,
+        db=db,
+        year_from=year_from,
+        year_to=year_to,
+        imdb_min=imdb_min,
+        imdb_max=imdb_max,
+        votes_min=votes_min,
+        votes_max=votes_max,
+        meta_score_min=meta_score_min,
+        meta_score_max=meta_score_max,
+        sort_by=sort_by,
+        sort_order=sort_order,
+        search=search,
+    )
 
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found.")
 
     total_items = await get_number_of_movies(db)
     total_pages = (total_items - 1) // per_page + 1
-    prev_page = f"/movies/?page={page - 1}&per_page={per_page}" if page > 1 else None
-    next_page = f"/movies/?page={page + 1}&per_page={per_page}" if page < total_pages else None
+    prev_page = page - 1 if page > 1 else None
+    next_page = page + 1 if page < total_pages else None
 
     return MovieListResponseSchema(
         movies=movies,
