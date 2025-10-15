@@ -1,7 +1,10 @@
 from schemas.accounts import (
+    ChangePasswordRequestSchema,
+    ChangeUserRoleRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,
+    ResendActivationEmailRequestSchema,
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
     UserActivationRequestSchema,
@@ -20,8 +23,8 @@ from schemas.payments import (
     PaymentResponseSchema,
 )
 from schemas.profiles import (
-    ProfileCreateRequestSchema,
-    ProfileCreateResponseSchema,
+    ProfileCreateSchema,
+    ProfileResponseSchema,
 )
 from schemas.shopping_carts import (
     CartItemResponseSchema,

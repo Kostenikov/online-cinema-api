@@ -27,9 +27,12 @@ from database.models.accounts import BlacklistedTokenModel
 from exceptions import BaseSecurityError
 from notifications import EmailSenderInterface
 from schemas import (
+    ChangePasswordRequestSchema,
+    ChangeUserRoleRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,
+    ResendActivationEmailRequestSchema,
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
     UserActivationRequestSchema,
@@ -134,6 +137,71 @@ async def register_user(
 
 
 @router.post(
+    "/resend-activation-email/",
+    name="resend_activation_email",
+    response_model=MessageResponseSchema,
+    summary="Resend activation email",
+    description="Resend activation email with new token",
+    status_code=status.HTTP_200_OK,
+)
+async def resend_activation_email(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    data: ResendActivationEmailRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+) -> MessageResponseSchema:
+    """
+    Endpoint for resending activation email.
+
+    Creates new token if user is registered and not active
+
+    :param request: Request
+    :param background_tasks:
+    :param data:
+    :param db:
+    :param email_sender:
+    :return: MessageResponseSchema:
+    """
+    try:
+        stmt = select(UserModel).where(UserModel.email == data.email)
+        result = await db.execute(stmt)
+        user = result.scalars().first()
+
+        if not user or user.is_active:
+            return MessageResponseSchema(
+                message="If you are registered, you will receive an email with instructions.",
+            )
+
+        await db.execute(
+            delete(ActivationTokenModel).filter(ActivationTokenModel.user_id == user.id),
+        )
+
+        activation_token = ActivationTokenModel(user_id=user.id)
+        db.add(activation_token)
+        await db.commit()
+
+        activation_link = f"{request.url_for('activate_page')}?{urlencode({'token': activation_token.token})}"
+
+        background_tasks.add_task(
+            email_sender.send_activation_email,
+            str(user.email),
+            activation_link,
+        )
+
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during user creation.",
+        )
+    else:
+        return MessageResponseSchema(
+            message="If you are registered, you will receive an email with instructions.",
+        )
+
+
+@router.post(
     "/activate/",
     name="activate_account",
     response_model=MessageResponseSchema,
@@ -220,6 +288,53 @@ async def activate_account(
     background_tasks.add_task(email_sender.send_activation_complete_email, str(user.email), login_link)
 
     return MessageResponseSchema(message="User account activated successfully.")
+
+
+@router.post(
+    "/change-password/",
+    name="change_password",
+    response_model=MessageResponseSchema,
+    summary="Change user password",
+    description="Authenticated users can change their password by providing the old password and a new password.",
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "description": "Conflict - User with this email already exists.",
+            "content": {"application/json": {"example": {"detail": "An error occurred while changing the password."}}},
+        },
+        500: {
+            "description": "Internal Server Error - An error occurred while updating the password.",
+            "content": {"application/json": {"example": {"detail": "An error occurred while changing the password."}}},
+        },
+    },
+)
+async def change_password(
+    data: ChangePasswordRequestSchema,
+    current_user: Annotated[UserModel, Depends(require_user)],
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseSchema:
+    """
+    Endpoint for changing user password.
+
+    The user must be authenticated and provide the correct old password.
+    """
+    if not current_user.verify_password(data.old_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Old password is incorrect.",
+        )
+
+    current_user.password = data.new_password
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the password.",
+        )
+
+    return MessageResponseSchema(message="Password changed successfully.")
 
 
 @router.post(
@@ -601,6 +716,60 @@ async def logout_user(
         )
 
     return MessageResponseSchema(message="Logged out successfully")
+
+
+@router.post(
+    "/change-role/",
+    name="change_user_role",
+    response_model=MessageResponseSchema,
+    summary="Change user role (admin only)",
+    description="Allows admins to change the role of a user by their user_id.",
+    status_code=status.HTTP_200_OK,
+    responses={
+        403: {"description": "Forbidden - Only admins can change roles."},
+        404: {"description": "Not Found - User or role not found."},
+        500: {"description": "Internal Server Error - Database error occurred."},
+    },
+)
+async def change_user_role(
+    data: ChangeUserRoleRequestSchema,
+    current_admin: Annotated[UserModel, Depends(require_admin)],
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseSchema:
+    """
+    Endpoint for changing a user's role.
+
+    - Requires the authenticated user to be an **admin**.
+    - Updates the target user's `group_id` based on the provided role.
+    """
+    stmt = select(UserModel).where(UserModel.id == data.user_id)
+    result = await db.execute(stmt)
+    user = result.scalars().first()
+    if not user:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found.")
+
+    if user.id == current_admin.id:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="You cannot change your role.")
+
+    stmt = select(UserGroupModel).where(UserGroupModel.name == data.new_role)
+    result = await db.execute(stmt)
+    role = result.scalars().first()
+    if not role:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Role not found.")
+
+    user.group_id = role.id
+
+    try:
+        await db.commit()
+        await db.refresh(user)
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the user's role.",
+        )
+
+    return MessageResponseSchema(message=f"Users role was changed to {data.new_role}")
 
 
 @router.get(
