@@ -7,6 +7,7 @@ from starlette.middleware.cors import CORSMiddleware
 
 from routes import accounts_router, fe_router, orders_router, profiles_router, shopping_carts_router
 from routes.movies import router as movies_router
+from routes.payments import router as payments_router
 
 app = FastAPI(
     title="Online Cinema API",
@@ -49,4 +50,9 @@ app.include_router(
     orders_router,
     prefix=f"{api_version_prefix}/orders",
     tags=["Orders"],
+)
+app.include_router(
+    payments_router,
+    prefix=f"{api_version_prefix}/payments",
+    tags=["Payments"],
 )

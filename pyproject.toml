@@ -37,6 +37,7 @@ pytest-asyncio = "^1.2.0"
 gunicorn = "^23.0.0"
 async-timeout = "^5.0.1"
 celery = {extras = ["redis"], version = "^5.5.3"}
+stripe = "^13.0.1"
 
 [tool.poetry.group.linters.dependencies]
 flake8 = "^7.3.0"

@@ -13,6 +13,15 @@ from schemas.accounts import (
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
 )
+from schemas.orders import (
+    OrderCreateResponseSchema,
+    OrderItemResponseSchema,
+    OrderResponseSchema,
+)
+from schemas.payments import (
+    PaymentCreateSchema,
+    PaymentResponseSchema,
+)
 from schemas.profiles import (
     ProfileCreateSchema,
     ProfileResponseSchema,
