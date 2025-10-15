@@ -8,7 +8,7 @@ async def test_aws_s3_connection():
     """Test connection to AWS S3 bucket"""
     settings = get_settings()
 
-    print(f"Testing connection to AWS S3...")
+    print("Testing connection to AWS S3...")
     print(f"Bucket: {settings.S3_BUCKET_NAME}")
     print(f"Region: {settings.S3_REGION}")
 
