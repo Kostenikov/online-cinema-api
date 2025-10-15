@@ -4,30 +4,46 @@ from typing import Optional
 from pydantic import BaseModel, Field, field_validator
 
 
-class GenreSchema(BaseModel):
+class NameBase(BaseModel):
+    name: str = Field(max_length=255)
+
+
+class GenreCreate(NameBase):
+    pass
+
+
+class GenreUpdate(BaseModel):
+    name: str | None = None
+
+
+class GenreDetail(NameBase):
     id: int
-    name: str
 
     model_config = {"from_attributes": True}
 
 
-class DirectorSchema(BaseModel):
+class StarCreate(NameBase):
+    pass
+
+
+class StarUpdate(BaseModel):
+    name: str | None = None
+
+
+class StarDetail(NameBase):
     id: int
-    name: str
 
     model_config = {"from_attributes": True}
 
 
-class StarSchema(BaseModel):
+class DirectorSchema(NameBase):
     id: int
-    name: str
 
     model_config = {"from_attributes": True}
 
 
-class CertificationSchema(BaseModel):
+class CertificationSchema(NameBase):
     id: int
-    name: str
 
     model_config = {"from_attributes": True}
 
@@ -58,9 +74,9 @@ class MovieDetail(MovieBaseSchema):
     id: int
     uuid: str
     certification: CertificationSchema
-    genres: list[GenreSchema]
+    genres: list[GenreDetail]
     directors: list[DirectorSchema]
-    stars: list[StarSchema]
+    stars: list[StarDetail]
 
     model_config = {"from_attributes": True}
 
@@ -85,8 +101,8 @@ class MovieListResponseSchema(BaseModel):
     model_config = {"from_attributes": True}
 
 
-class MovieCreateSchema(BaseModel):
-    name: str
+class MovieCreateSchema(MovieBaseSchema):
+    name: str = Field(max_length=255)
     year: int
     time: int = Field(ge=1)
     imdb: float = Field(ge=0, le=10)

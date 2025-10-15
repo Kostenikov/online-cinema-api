@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import Base, MovieModel
+from database import Base, GenreModel, MovieModel, StarModel
 
 T = TypeVar("T", bound=Base)
 
@@ -54,3 +54,29 @@ async def get_movie_or_404(movie_id: int, db: AsyncSession) -> MovieModel:
         return movie
 
     raise HTTPException(status_code=404, detail="Movie with the given ID was not found.")
+
+
+async def get_genres(db: AsyncSession):
+    result = await db.execute(select(GenreModel))
+    return result.scalars().all()
+
+
+async def get_genre_or_404(genre_id: int, db: AsyncSession):
+    result = await db.execute(select(GenreModel).filter_by(id=genre_id))
+    genre = result.scalar_one_or_none()
+    if not genre:
+        raise HTTPException(status_code=404, detail="Genre not found.")
+    return genre
+
+
+async def get_stars(db: AsyncSession):
+    result = await db.execute(select(StarModel))
+    return result.scalars().all()
+
+
+async def get_star_or_404(star_id: int, db: AsyncSession):
+    result = await db.execute(select(StarModel).filter_by(id=star_id))
+    star = result.scalar_one_or_none()
+    if not star:
+        raise HTTPException(status_code=404, detail="Star not found.")
+    return star
