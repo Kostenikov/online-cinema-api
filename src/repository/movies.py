@@ -5,7 +5,7 @@ from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import Base, GenreModel, MovieModel, StarModel
+from database import Base, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
 
 T = TypeVar("T", bound=Base)
 
@@ -80,3 +80,30 @@ async def get_star_or_404(star_id: int, db: AsyncSession):
     if not star:
         raise HTTPException(status_code=404, detail="Star not found.")
     return star
+
+
+async def toggle_reaction(db, user_id, content_type, object_id, action: ReactionTypeEnum):
+    stmt = select(Reaction).filter_by(user_id=user_id, content_type=content_type, object_id=object_id)
+    result = await db.execute(stmt)
+    reaction = result.scalar_one_or_none()
+
+    if reaction:
+        if reaction.reaction_type == action:
+            await db.delete(reaction)
+            await db.commit()
+            return {"detail": "Reaction removed."}
+        else:
+            reaction.reaction_type = action
+            await db.commit()
+            await db.refresh(reaction)
+            return {"detail": f"Reaction changed to {action.value}."}
+    else:
+        new_reaction = Reaction(
+            user_id=user_id,
+            content_type=content_type,
+            object_id=object_id,
+            reaction_type=action,
+        )
+        db.add(new_reaction)
+        await db.commit()
+        return {"detail": f"{action.value.capitalize()} added."}
