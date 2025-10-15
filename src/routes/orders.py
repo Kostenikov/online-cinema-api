@@ -4,7 +4,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
 from database import UserModel, get_db
-from database.models.orders import OrderModel, OrderItemModel
+from database.models.orders import OrderItemModel, OrderModel
 from repository.orders import cancel_order, create_order_from_cart, get_user_orders
 from schemas.orders import (
     OrderCreateResponseSchema,
@@ -115,7 +115,11 @@ async def get_all_orders_admin(
     db: AsyncSession = Depends(get_db),
     current_user: UserModel = Depends(require_moderator),
 ):
-    query = select(OrderModel).options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie)).order_by(OrderModel.created_at.desc())
+    query = (
+        select(OrderModel)
+        .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
+        .order_by(OrderModel.created_at.desc())
+    )
     if user_id:
         query = query.filter(OrderModel.user_id == user_id)
 
