@@ -57,9 +57,6 @@ class EmailSender(EmailSenderInterface):
         try:
             smtp = aiosmtplib.SMTP(hostname=self._hostname, port=self._port, start_tls=self._use_tls)
             await smtp.connect()
-            #   TODO if mailhog
-            if self._use_tls:
-                await smtp.starttls()
             await smtp.login(self._email, self._password)
             await smtp.sendmail(self._email, [recipient], message.as_string())
             await smtp.quit()
