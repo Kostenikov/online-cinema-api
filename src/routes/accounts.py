@@ -36,7 +36,7 @@ from schemas import (
     UserLoginRequestSchema,
     UserLoginResponseSchema,
     UserRegistrationRequestSchema,
-    UserRegistrationResponseSchema,
+    UserRegistrationResponseSchema, ResendActivationEmailRequestSchema,
 )
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
@@ -131,6 +131,71 @@ async def register_user(
         ) from e
     else:
         return UserRegistrationResponseSchema.model_validate(new_user)
+
+
+@router.post(
+    "/resend-activation-email/",
+    name="resend_activation_email",
+    response_model=MessageResponseSchema,
+    summary="Resend activation email",
+    description="Resend activation email with new token",
+    status_code=status.HTTP_200_OK,
+)
+async def register_user(
+    request: Request,
+    background_tasks: BackgroundTasks,
+    data: ResendActivationEmailRequestSchema,
+    db: AsyncSession = Depends(get_db),
+    email_sender: EmailSenderInterface = Depends(get_accounts_email_notificator),
+) -> MessageResponseSchema:
+    """
+    Endpoint for resending activation email.
+
+    Creates new token if user is registered and not active
+
+    :param request: Request
+    :param background_tasks:
+    :param data:
+    :param db:
+    :param email_sender:
+    :return: MessageResponseSchema:
+    """
+    try:
+        stmt = select(UserModel).where(UserModel.email == data.email)
+        result = await db.execute(stmt)
+        user = result.scalars().first()
+
+        if not user or user.is_active:
+            return MessageResponseSchema(
+                message="If you are registered, you will receive an email with instructions.",
+            )
+
+        await db.execute(
+            delete(ActivationTokenModel).filter(ActivationTokenModel.user_id == user.id),
+        )
+
+        activation_token = ActivationTokenModel(user_id=user.id)
+        db.add(activation_token)
+        await db.commit()
+
+        activation_link = f"{request.url_for('activate_page')}?{urlencode({'token': activation_token.token})}"
+
+        background_tasks.add_task(
+            email_sender.send_activation_email,
+            str(user.email),
+            activation_link,
+        )
+
+    except SQLAlchemyError as e:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred during user creation.",
+        )
+    else:
+        return MessageResponseSchema(
+            message="If you are registered, you will receive an email with instructions.",
+        )
 
 
 @router.post(

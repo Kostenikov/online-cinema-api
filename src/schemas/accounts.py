@@ -65,3 +65,7 @@ class TokenRefreshResponseSchema(BaseModel):
 
 class TokenRefreshRequestSchema(BaseModel):
     refresh_token: str
+
+
+class ResendActivationEmailRequestSchema(BaseModel):
+    email: EmailStr
