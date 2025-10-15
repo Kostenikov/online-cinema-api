@@ -2,10 +2,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import UserModel, get_db
-from repository.orders import create_order_from_cart, get_user_orders, cancel_order
+from repository.orders import cancel_order, create_order_from_cart, get_user_orders
 from schemas.orders import (
-    OrderResponseSchema,
     OrderCreateResponseSchema,
+    OrderResponseSchema,
 )
 from security.permissions import get_current_user
 

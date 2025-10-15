@@ -11,10 +11,7 @@ from database import CartItemModel, CartModel, MovieModel, OrderItemModel, Order
 async def get_user_orders(db: AsyncSession, user_id: int):
     result = await db.scalars(
         select(OrderModel)
-        .options(
-            selectinload(OrderModel.order_items)
-            .selectinload(OrderItemModel.movie)
-        )
+        .options(selectinload(OrderModel.order_items).selectinload(OrderItemModel.movie))
         .where(OrderModel.user_id == user_id)
         .order_by(OrderModel.created_at.desc())
     )
@@ -71,9 +68,7 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
 
 
 async def cancel_order(db: AsyncSession, order_id: int, user_id: int):
-    order = await db.scalar(
-        select(OrderModel).where(OrderModel.id == order_id, OrderModel.user_id == user_id)
-    )
+    order = await db.scalar(select(OrderModel).where(OrderModel.id == order_id, OrderModel.user_id == user_id))
     if not order:
         return None, "Order not found."
     if order.status != "pending":
