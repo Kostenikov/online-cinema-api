@@ -27,16 +27,18 @@ from database.models.accounts import BlacklistedTokenModel
 from exceptions import BaseSecurityError
 from notifications import EmailSenderInterface
 from schemas import (
+    ChangePasswordRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,
+    ResendActivationEmailRequestSchema,
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
     UserActivationRequestSchema,
     UserLoginRequestSchema,
     UserLoginResponseSchema,
     UserRegistrationRequestSchema,
-    UserRegistrationResponseSchema, ResendActivationEmailRequestSchema,
+    UserRegistrationResponseSchema,
 )
 from security.http import get_token
 from security.interfaces import JWTAuthManagerInterface
@@ -141,7 +143,7 @@ async def register_user(
     description="Resend activation email with new token",
     status_code=status.HTTP_200_OK,
 )
-async def register_user(
+async def resend_activation_email(
     request: Request,
     background_tasks: BackgroundTasks,
     data: ResendActivationEmailRequestSchema,
@@ -186,7 +188,7 @@ async def register_user(
             activation_link,
         )
 
-    except SQLAlchemyError as e:
+    except SQLAlchemyError:
         await db.rollback()
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
@@ -285,6 +287,53 @@ async def activate_account(
     background_tasks.add_task(email_sender.send_activation_complete_email, str(user.email), login_link)
 
     return MessageResponseSchema(message="User account activated successfully.")
+
+
+@router.post(
+    "/change-password/",
+    name="change_password",
+    response_model=MessageResponseSchema,
+    summary="Change user password",
+    description="Authenticated users can change their password by providing the old password and a new password.",
+    status_code=status.HTTP_200_OK,
+    responses={
+        400: {
+            "description": "Conflict - User with this email already exists.",
+            "content": {"application/json": {"example": {"detail": "An error occurred while changing the password."}}},
+        },
+        500: {
+            "description": "Internal Server Error - An error occurred while updating the password.",
+            "content": {"application/json": {"example": {"detail": "An error occurred while changing the password."}}},
+        },
+    },
+)
+async def change_password(
+    data: ChangePasswordRequestSchema,
+    current_user: Annotated[UserModel, Depends(require_user)],
+    db: AsyncSession = Depends(get_db),
+) -> MessageResponseSchema:
+    """
+    Endpoint for changing user password.
+
+    The user must be authenticated and provide the correct old password.
+    """
+    if not current_user.verify_password(data.old_password):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Old password is incorrect.",
+        )
+
+    current_user.password = data.new_password
+    try:
+        await db.commit()
+    except SQLAlchemyError:
+        await db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="An error occurred while updating the password.",
+        )
+
+    return MessageResponseSchema(message="Password changed successfully.")
 
 
 @router.post(

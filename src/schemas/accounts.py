@@ -1,4 +1,4 @@
-from pydantic import BaseModel, ConfigDict, EmailStr, field_validator
+from pydantic import BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from database import accounts_validators
 
@@ -69,3 +69,13 @@ class TokenRefreshRequestSchema(BaseModel):
 
 class ResendActivationEmailRequestSchema(BaseModel):
     email: EmailStr
+
+
+class ChangePasswordRequestSchema(BaseModel):
+    old_password: str = Field("SecurePassword@123", min_length=8, description="Current password")
+    new_password: str = Field("SecurePassword@123", min_length=8, description="New password")
+
+    @field_validator("new_password")
+    @classmethod
+    def validate_password(cls, value):
+        return accounts_validators.validate_password_strength(value)

@@ -1,7 +1,9 @@
 from schemas.accounts import (
+    ChangePasswordRequestSchema,
     MessageResponseSchema,
     PasswordResetCompleteRequestSchema,
     PasswordResetRequestSchema,
+    ResendActivationEmailRequestSchema,
     TokenRefreshRequestSchema,
     TokenRefreshResponseSchema,
     UserActivationRequestSchema,
@@ -9,7 +11,6 @@ from schemas.accounts import (
     UserLoginResponseSchema,
     UserRegistrationRequestSchema,
     UserRegistrationResponseSchema,
-ResendActivationEmailRequestSchema,
 )
 from schemas.profiles import (
     ProfileCreateRequestSchema,
