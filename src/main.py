@@ -5,7 +5,7 @@ from fastapi.responses import JSONResponse
 from starlette.datastructures import UploadFile
 from starlette.middleware.cors import CORSMiddleware
 
-from routes import accounts_router, fe_router, profiles_router, shopping_carts_router
+from routes import accounts_router, fe_router, profiles_router, shopping_carts_router, orders_router
 from routes.movies import router as movies_router
 
 app = FastAPI(
@@ -56,5 +56,10 @@ app.include_router(
 app.include_router(
     profiles_router,
     prefix=f"{api_version_prefix}/profiles",
-    tags=["profiles"],
+    tags=["Profiles"],
+)
+app.include_router(
+    orders_router,
+    prefix=f"{api_version_prefix}/orders",
+    tags=["Orders"],
 )
