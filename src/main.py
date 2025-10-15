@@ -14,19 +14,6 @@ app = FastAPI(
 )
 
 
-@app.exception_handler(RequestValidationError)
-async def validation_exception_handler(request: Request, exc: RequestValidationError):
-    errors = exc.errors()
-    for error in errors:
-        if _input := error.get("input"):
-            if isinstance(_input, UploadFile):
-                error["input"] = "UploadFile"
-    return JSONResponse(
-        status_code=422,
-        content=jsonable_encoder({"detail": exc.errors()}),
-    )
-
-
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
