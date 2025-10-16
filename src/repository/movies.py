@@ -250,3 +250,40 @@ async def get_comment_reaction_counts(db: AsyncSession, comment_id: int):
     result = await db.execute(stmt)
     counts = dict(result.all())
     return {"likes": counts.get(ReactionTypeEnum.LIKE, 0), "dislikes": counts.get(ReactionTypeEnum.DISLIKE, 0)}
+
+
+async def get_movie_reaction_counts(db: AsyncSession, movie_ids: list[int]) -> dict[int, dict[str, int]]:
+    """Return a dictionary mapping movie_id -> {"likes": int, "dislikes": int}."""
+    if not movie_ids:
+        return {}
+
+    stmt = (
+        select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
+        .where(Reaction.content_type == "movie", Reaction.object_id.in_(movie_ids))
+        .group_by(Reaction.object_id, Reaction.reaction_type)
+    )
+
+    result = await db.execute(stmt)
+    counts = {}
+    for movie_id, reaction_type, count in result.all():
+        if movie_id not in counts:
+            counts[movie_id] = {"likes": 0, "dislikes": 0}
+        if reaction_type == ReactionTypeEnum.LIKE:
+            counts[movie_id]["likes"] = count
+        elif reaction_type == ReactionTypeEnum.DISLIKE:
+            counts[movie_id]["dislikes"] = count
+    return counts
+
+
+async def get_user_movie_reactions(db: AsyncSession, user_id: int, movie_ids: list[int]) -> dict[int, str | None]:
+    """Return a dict mapping movie_id -> user's reaction ("like", "dislike") or None."""
+    if not movie_ids:
+        return {}
+
+    stmt = select(Reaction.object_id, Reaction.reaction_type).where(
+        Reaction.content_type == "movie",
+        Reaction.object_id.in_(movie_ids),
+        Reaction.user_id == user_id,
+    )
+    result = await db.execute(stmt)
+    return {movie_id: reaction_type.value for movie_id, reaction_type in result.all()}

@@ -88,6 +88,7 @@ class MovieDetail(MovieBaseSchema):
     certification: CertificationSchema
     likes: int = 0
     dislikes: int = 0
+    user_reaction: Optional[str] = None
     genres: list[GenreDetail]
     directors: list[DirectorSchema]
     stars: list[StarDetail]
@@ -103,6 +104,7 @@ class MovieListItemSchema(BaseModel):
     description: str
     likes: int = 0
     dislikes: int = 0
+    user_reaction: Optional[str] = None
 
 
 class MovieListResponseSchema(BaseModel):

@@ -23,11 +23,13 @@ from repository.movies import (
     get_movie,
     get_movie_comments,
     get_movie_or_404,
+    get_movie_reaction_counts,
     get_movies,
     get_number_of_movies,
     get_or_create,
     get_star_or_404,
     get_stars,
+    get_user_movie_reactions,
     toggle_reaction,
 )
 from schemas.movies import (
@@ -38,6 +40,7 @@ from schemas.movies import (
     GenreUpdate,
     MovieCreateSchema,
     MovieDetail,
+    MovieListItemSchema,
     MovieListResponseSchema,
     MovieUpdateSchema,
     StarCreate,
@@ -228,13 +231,35 @@ async def list_movies(
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found.")
 
+    movie_ids = [movie.id for movie in movies]
+
+    reaction_counts = await get_movie_reaction_counts(db, movie_ids)
+
+    user_reactions = await get_user_movie_reactions(db, current_user.id, movie_ids)
+
+    movie_list = []
+    for movie in movies:
+        counts = reaction_counts.get(movie.id, {"likes": 0, "dislikes": 0})
+        movie_list.append(
+            MovieListItemSchema(
+                id=movie.id,
+                name=movie.name,
+                year=movie.year,
+                imdb=movie.imdb,
+                description=movie.description,
+                likes=counts["likes"],
+                dislikes=counts["dislikes"],
+                user_reaction=user_reactions.get(movie.id),
+            )
+        )
+
     total_items = await get_number_of_movies(db)
     total_pages = (total_items - 1) // per_page + 1
     prev_page = f"/movies/?page={page - 1}&per_page={per_page}" if page > 1 else None
     next_page = f"/movies/?page={page + 1}&per_page={per_page}" if page < total_pages else None
 
     return MovieListResponseSchema(
-        movies=movies,
+        movies=movie_list,
         prev_page=prev_page,
         next_page=next_page,
         total_pages=total_pages,
