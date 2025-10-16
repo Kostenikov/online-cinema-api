@@ -10,6 +10,39 @@ from database import Base, CommentModel, DirectorModel, GenreModel, MovieModel, 
 T = TypeVar("T", bound=Base)
 
 
+async def get_reactions_summary(db, content_type: str, object_ids: list[int], user_id: int | None = None):
+    if not object_ids:
+        return {}, {}
+
+    stmt = (
+        select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
+        .where(Reaction.content_type == content_type, Reaction.object_id.in_(object_ids))
+        .group_by(Reaction.object_id, Reaction.reaction_type)
+    )
+    result = await db.execute(stmt)
+
+    reaction_counts = {}
+    for object_id, reaction_type, count in result.all():
+        if object_id not in reaction_counts:
+            reaction_counts[object_id] = {"likes": 0, "dislikes": 0}
+        if reaction_type == ReactionTypeEnum.LIKE:
+            reaction_counts[object_id]["likes"] = count
+        elif reaction_type == ReactionTypeEnum.DISLIKE:
+            reaction_counts[object_id]["dislikes"] = count
+
+    user_reactions = {}
+    if user_id is not None:
+        stmt = select(Reaction.object_id, Reaction.reaction_type).where(
+            Reaction.content_type == content_type,
+            Reaction.object_id.in_(object_ids),
+            Reaction.user_id == user_id,
+        )
+        result = await db.execute(stmt)
+        user_reactions = {obj_id: reaction_type.value for obj_id, reaction_type in result.all()}
+
+    return reaction_counts, user_reactions
+
+
 async def get_movies(
     per_page: int,
     page: int,
@@ -241,37 +274,9 @@ async def get_comment_or_404(comment_id: int, db: AsyncSession) -> CommentModel:
     return comment
 
 
-async def get_comment_reaction_counts(db: AsyncSession, comment_id: int):
-    stmt = (
-        select(Reaction.reaction_type, func.count(Reaction.id))
-        .where(Reaction.content_type == "comment", Reaction.object_id == comment_id)
-        .group_by(Reaction.reaction_type)
-    )
-    result = await db.execute(stmt)
-    counts = dict(result.all())
-    return {"likes": counts.get(ReactionTypeEnum.LIKE, 0), "dislikes": counts.get(ReactionTypeEnum.DISLIKE, 0)}
-
-
-async def get_movie_reaction_counts(db: AsyncSession, movie_ids: list[int]) -> dict[int, dict[str, int]]:
-    if not movie_ids:
-        return {}
-
-    stmt = (
-        select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
-        .where(Reaction.content_type == "movie", Reaction.object_id.in_(movie_ids))
-        .group_by(Reaction.object_id, Reaction.reaction_type)
-    )
-
-    result = await db.execute(stmt)
-    counts = {}
-    for movie_id, reaction_type, count in result.all():
-        if movie_id not in counts:
-            counts[movie_id] = {"likes": 0, "dislikes": 0}
-        if reaction_type == ReactionTypeEnum.LIKE:
-            counts[movie_id]["likes"] = count
-        elif reaction_type == ReactionTypeEnum.DISLIKE:
-            counts[movie_id]["dislikes"] = count
-    return counts
+async def get_movie_reaction_counts(db, movie_ids: list[int]):
+    reaction_counts, _ = await get_reactions_summary(db=db, content_type="movie", object_ids=movie_ids, user_id=None)
+    return reaction_counts
 
 
 async def get_user_movie_reactions(db: AsyncSession, user_id: int, movie_ids: list[int]) -> dict[int, str | None]:

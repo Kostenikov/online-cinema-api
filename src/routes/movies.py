@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 
-from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import func, select, union
+from fastapi import APIRouter, Depends, HTTPException, Query, status
+from sqlalchemy import select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
@@ -11,7 +11,6 @@ from database import (
     GenreModel,
     MovieModel,
     OrderItemModel,
-    Reaction,
     ReactionTypeEnum,
     StarModel,
     UserModel,
@@ -28,6 +27,7 @@ from repository.movies import (
     get_movies,
     get_number_of_movies,
     get_or_create,
+    get_reactions_summary,
     get_star_or_404,
     get_stars,
     get_user_movie_reactions,
@@ -496,35 +496,15 @@ async def list_comments(
     db: AsyncSession = Depends(get_db),
 ):
     await get_movie_or_404(movie_id, db)
-
     comments = await get_movie_comments(db, movie_id)
-    comment_ids = [c.id for c in comments]
+    comment_ids = [comment.id for comment in comments]
 
-    reaction_counts = {}
-    if comment_ids:
-        stmt = (
-            select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
-            .where(Reaction.content_type == "comment", Reaction.object_id.in_(comment_ids))
-            .group_by(Reaction.object_id, Reaction.reaction_type)
-        )
-        result = await db.execute(stmt)
-        for object_id, reaction_type, count in result.all():
-            if object_id not in reaction_counts:
-                reaction_counts[object_id] = {"likes": 0, "dislikes": 0}
-            if reaction_type == ReactionTypeEnum.LIKE:
-                reaction_counts[object_id]["likes"] = count
-            elif reaction_type == ReactionTypeEnum.DISLIKE:
-                reaction_counts[object_id]["dislikes"] = count
-
-    user_reactions = {}
-    if comment_ids:
-        stmt = select(Reaction.object_id, Reaction.reaction_type).where(
-            Reaction.content_type == "comment",
-            Reaction.object_id.in_(comment_ids),
-            Reaction.user_id == current_user.id,
-        )
-        result = await db.execute(stmt)
-        user_reactions = {object_id: reaction_type.value for object_id, reaction_type in result.all()}
+    reaction_counts, user_reactions = await get_reactions_summary(
+        db=db,
+        content_type="comment",
+        object_ids=comment_ids,
+        user_id=current_user.id,
+    )
 
     return [
         CommentDetailSchema(
