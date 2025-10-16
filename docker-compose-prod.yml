@@ -151,8 +151,6 @@ volumes:
     driver: local
   pgadmin_cinema_data:
     driver: local
-  minio_data:
-    driver: local
 
 networks:
   cinema_network:
