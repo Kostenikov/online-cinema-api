@@ -253,7 +253,6 @@ async def get_comment_reaction_counts(db: AsyncSession, comment_id: int):
 
 
 async def get_movie_reaction_counts(db: AsyncSession, movie_ids: list[int]) -> dict[int, dict[str, int]]:
-    """Return a dictionary mapping movie_id -> {"likes": int, "dislikes": int}."""
     if not movie_ids:
         return {}
 

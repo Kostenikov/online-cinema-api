@@ -204,5 +204,5 @@ class CommentModel(Base):
     content: Mapped[str] = mapped_column(Text, nullable=False)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
 
-    user: Mapped["UserModel"] = relationship("UserModel", back_populates="comments")
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="comments")  # noqa: F821
     movie: Mapped["MovieModel"] = relationship("MovieModel", back_populates="comments")
