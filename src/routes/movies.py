@@ -1,5 +1,4 @@
 from typing import Annotated, Optional
-from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, union
@@ -466,3 +465,22 @@ async def list_comments(
 ):
     await get_movie_or_404(movie_id, db)
     return await get_movie_comments(db, movie_id)
+
+
+@router.post("/{comment_id}/comments/react/", description="Like or dislike a comment.", response_model=dict)
+async def react_comment(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    comment_id: int,
+    action: ReactionTypeEnum,
+    db: AsyncSession = Depends(get_db),
+):
+    from repository.movies import get_comment_or_404
+    await get_comment_or_404(comment_id, db)
+
+    return await toggle_reaction(
+        db=db,
+        user_id=current_user.id,
+        content_type="comment",
+        object_id=comment_id,
+        action=action
+    )

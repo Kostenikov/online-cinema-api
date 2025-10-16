@@ -86,6 +86,8 @@ class MovieDetail(MovieBaseSchema):
     id: int
     uuid: str
     certification: CertificationSchema
+    likes: int = 0
+    dislikes: int = 0
     genres: list[GenreDetail]
     directors: list[DirectorSchema]
     stars: list[StarDetail]
@@ -99,6 +101,8 @@ class MovieListItemSchema(BaseModel):
     year: int
     imdb: float
     description: str
+    likes: int = 0
+    dislikes: int = 0
 
 
 class MovieListResponseSchema(BaseModel):

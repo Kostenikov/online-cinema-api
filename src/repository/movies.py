@@ -231,3 +231,26 @@ async def get_movie_comments(db: AsyncSession, movie_id: int):
         select(CommentModel).where(CommentModel.movie_id == movie_id).order_by(CommentModel.created_at.desc())
     )
     return result.scalars().all()
+
+
+async def get_comment_or_404(comment_id: int, db: AsyncSession) -> CommentModel:
+    result = await db.execute(select(CommentModel).where(CommentModel.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    return comment
+
+
+async def get_comment_reaction_counts(db: AsyncSession, comment_id: int):
+    stmt = select(
+        Reaction.reaction_type, func.count(Reaction.id)
+    ).where(
+        Reaction.content_type == "comment",
+        Reaction.object_id == comment_id
+    ).group_by(Reaction.reaction_type)
+    result = await db.execute(stmt)
+    counts = dict(result.all())
+    return {
+        "likes": counts.get(ReactionTypeEnum.LIKE, 0),
+        "dislikes": counts.get(ReactionTypeEnum.DISLIKE, 0)
+    }
