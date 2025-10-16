@@ -472,7 +472,10 @@ async def react_movie(
     )
 
 
-@router.post("/{movie_id}/comments/", response_model=CommentDetailSchema)
+@router.post(
+    "/{movie_id}/comments/",
+    response_model=CommentDetailSchema,
+)
 async def write_comment(
     current_user: Annotated[UserModel, Depends(require_user)],
     movie_id: int,
@@ -483,7 +486,10 @@ async def write_comment(
     return await add_comment(db, user_id=current_user.id, movie_id=movie_id, content=data.content)
 
 
-@router.get("/{movie_id}/comments/", response_model=list[CommentDetailSchema])
+@router.get(
+    "/{movie_id}/comments/",
+    response_model=list[CommentDetailSchema],
+)
 async def list_comments(
     current_user: Annotated[UserModel, Depends(require_user)],
     movie_id: int,
@@ -534,7 +540,11 @@ async def list_comments(
     ]
 
 
-@router.post("/{comment_id}/comments/react/", description="Like or dislike a comment.", response_model=dict)
+@router.post(
+    "/{comment_id}/comments/react/",
+    description="Like or dislike a comment.",
+    response_model=dict,
+)
 async def react_comment(
     current_user: Annotated[UserModel, Depends(require_user)],
     comment_id: int,

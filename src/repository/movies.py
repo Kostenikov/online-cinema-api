@@ -275,7 +275,6 @@ async def get_movie_reaction_counts(db: AsyncSession, movie_ids: list[int]) -> d
 
 
 async def get_user_movie_reactions(db: AsyncSession, user_id: int, movie_ids: list[int]) -> dict[int, str | None]:
-    """Return a dict mapping movie_id -> user's reaction ("like", "dislike") or None."""
     if not movie_ids:
         return {}
 
