@@ -1,7 +1,7 @@
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
-from sqlalchemy import select, union
+from sqlalchemy import func, select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from database import (
@@ -11,6 +11,7 @@ from database import (
     GenreModel,
     MovieModel,
     OrderItemModel,
+    Reaction,
     ReactionTypeEnum,
     StarModel,
     UserModel,
@@ -489,7 +490,48 @@ async def list_comments(
     db: AsyncSession = Depends(get_db),
 ):
     await get_movie_or_404(movie_id, db)
-    return await get_movie_comments(db, movie_id)
+
+    comments = await get_movie_comments(db, movie_id)
+    comment_ids = [c.id for c in comments]
+
+    reaction_counts = {}
+    if comment_ids:
+        stmt = (
+            select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
+            .where(Reaction.content_type == "comment", Reaction.object_id.in_(comment_ids))
+            .group_by(Reaction.object_id, Reaction.reaction_type)
+        )
+        result = await db.execute(stmt)
+        for object_id, reaction_type, count in result.all():
+            if object_id not in reaction_counts:
+                reaction_counts[object_id] = {"likes": 0, "dislikes": 0}
+            if reaction_type == ReactionTypeEnum.LIKE:
+                reaction_counts[object_id]["likes"] = count
+            elif reaction_type == ReactionTypeEnum.DISLIKE:
+                reaction_counts[object_id]["dislikes"] = count
+
+    user_reactions = {}
+    if comment_ids:
+        stmt = select(Reaction.object_id, Reaction.reaction_type).where(
+            Reaction.content_type == "comment",
+            Reaction.object_id.in_(comment_ids),
+            Reaction.user_id == current_user.id,
+        )
+        result = await db.execute(stmt)
+        user_reactions = {object_id: reaction_type.value for object_id, reaction_type in result.all()}
+
+    return [
+        CommentDetailSchema(
+            id=comment.id,
+            user_id=comment.user_id,
+            content=comment.content,
+            created_at=comment.created_at,
+            likes=reaction_counts.get(comment.id, {}).get("likes", 0),
+            dislikes=reaction_counts.get(comment.id, {}).get("dislikes", 0),
+            user_reaction=user_reactions.get(comment.id),
+        )
+        for comment in comments
+    ]
 
 
 @router.post("/{comment_id}/comments/react/", description="Like or dislike a comment.", response_model=dict)

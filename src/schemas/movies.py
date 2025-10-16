@@ -15,6 +15,9 @@ class CommentDetailSchema(BaseModel):
     user_id: int
     content: str
     created_at: datetime
+    likes: int = 0
+    dislikes: int = 0
+    user_reaction: Optional[str] = None
 
 
 class NameBase(BaseModel):
