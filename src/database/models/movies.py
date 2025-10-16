@@ -1,8 +1,21 @@
 import enum
 import uuid
+from datetime import datetime, timezone
 from typing import Optional
 
-from sqlalchemy import DECIMAL, Column, Enum, Float, ForeignKey, Integer, String, Table, Text, UniqueConstraint
+from sqlalchemy import (
+    DECIMAL,
+    Column,
+    DateTime,
+    Enum,
+    Float,
+    ForeignKey,
+    Integer,
+    String,
+    Table,
+    Text,
+    UniqueConstraint,
+)
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from database import Base
@@ -155,6 +168,10 @@ class MovieModel(Base):
         "DirectorModel", secondary=movie_directors, back_populates="movies"
     )
 
+    comments: Mapped[list["CommentModel"]] = relationship(
+        "CommentModel", back_populates="movie", cascade="all, delete"
+    )
+
     __table_args__ = (UniqueConstraint("name", "year", "time", name="unique_movie_constraint"),)
 
     def __repr__(self):
@@ -176,3 +193,16 @@ class Reaction(Base):
     reaction_type: Mapped[ReactionTypeEnum] = mapped_column(Enum(ReactionTypeEnum), nullable=False)
 
     __table_args__ = (UniqueConstraint("user_id", "content_type", "object_id"),)
+
+
+class CommentModel(Base):
+    __tablename__ = "comments"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id", ondelete="CASCADE"), nullable=False)
+    movie_id: Mapped[int] = mapped_column(ForeignKey("movies.id", ondelete="CASCADE"), nullable=False)
+    content: Mapped[str] = mapped_column(Text, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    user: Mapped["UserModel"] = relationship("UserModel", back_populates="comments")  # noqa: F821
+    movie: Mapped["MovieModel"] = relationship("MovieModel", back_populates="comments")

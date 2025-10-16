@@ -81,6 +81,8 @@ class UserModel(Base):
         "UserProfileModel", back_populates="user", cascade="all, delete-orphan"
     )
 
+    comments: Mapped[list["CommentModel"]] = relationship("CommentModel", back_populates="user")  # noqa: F821
+
     def __repr__(self):
         return f"<UserModel(id={self.id}, email={self.email}, is_active={self.is_active})>"
 

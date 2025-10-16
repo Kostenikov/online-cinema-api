@@ -5,9 +5,42 @@ from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import Base, DirectorModel, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
+from database import Base, CommentModel, DirectorModel, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
 
 T = TypeVar("T", bound=Base)
+
+
+async def get_reactions_summary(db, content_type: str, object_ids: list[int], user_id: int | None = None):
+    if not object_ids:
+        return {}, {}
+
+    stmt = (
+        select(Reaction.object_id, Reaction.reaction_type, func.count(Reaction.id))
+        .where(Reaction.content_type == content_type, Reaction.object_id.in_(object_ids))
+        .group_by(Reaction.object_id, Reaction.reaction_type)
+    )
+    result = await db.execute(stmt)
+
+    reaction_counts = {}
+    for object_id, reaction_type, count in result.all():
+        if object_id not in reaction_counts:
+            reaction_counts[object_id] = {"likes": 0, "dislikes": 0}
+        if reaction_type == ReactionTypeEnum.LIKE:
+            reaction_counts[object_id]["likes"] = count
+        elif reaction_type == ReactionTypeEnum.DISLIKE:
+            reaction_counts[object_id]["dislikes"] = count
+
+    user_reactions = {}
+    if user_id is not None:
+        stmt = select(Reaction.object_id, Reaction.reaction_type).where(
+            Reaction.content_type == content_type,
+            Reaction.object_id.in_(object_ids),
+            Reaction.user_id == user_id,
+        )
+        result = await db.execute(stmt)
+        user_reactions = {obj_id: reaction_type.value for obj_id, reaction_type in result.all()}
+
+    return reaction_counts, user_reactions
 
 
 async def get_movies(
@@ -25,6 +58,7 @@ async def get_movies(
     sort_by: Optional[str] = None,
     sort_order: str = "desc",
     search: Optional[str] = None,
+    genre_id: Optional[int] = None,
 ) -> Sequence[MovieModel]:
     query = select(MovieModel)
 
@@ -35,6 +69,8 @@ async def get_movies(
         joinedload(MovieModel.certification),
     )
 
+    if genre_id is not None:
+        query = query.join(MovieModel.genres).where(GenreModel.id == genre_id)
     if year_from is not None:
         query = query.where(MovieModel.year >= year_from)
     if year_to is not None:
@@ -175,3 +211,82 @@ async def toggle_reaction(db, user_id, content_type, object_id, action: Reaction
         db.add(new_reaction)
         await db.commit()
         return {"detail": f"{action.value.capitalize()} added."}
+
+
+async def get_genres_with_movie_count(db: AsyncSession) -> list[dict]:
+    query = (
+        select(GenreModel.id, GenreModel.name, func.count(MovieModel.id).label("movie_count"))
+        .join(MovieModel.genres, isouter=True)
+        .group_by(GenreModel.id)
+    )
+    result = await db.execute(query)
+
+    genres = []
+    for res in result.all():
+        genres.append(
+            {
+                "id": res.id,
+                "name": res.name,
+                "movie_count": res.movie_count,
+                "movies_url": f"/movies/?genre_id={res.id}",
+            }
+        )
+    return genres
+
+
+async def get_movies_by_genre(genre_id: int, db: AsyncSession) -> Sequence[MovieModel]:
+    query = (
+        select(MovieModel)
+        .join(MovieModel.genres)
+        .where(GenreModel.id == genre_id)
+        .options(
+            joinedload(MovieModel.genres),
+            joinedload(MovieModel.directors),
+            joinedload(MovieModel.stars),
+            joinedload(MovieModel.certification),
+        )
+        .order_by(MovieModel.id.desc())
+    )
+    result = await db.execute(query)
+    return result.unique().scalars().all()
+
+
+async def add_comment(db: AsyncSession, user_id: int, movie_id: int, content: str):
+    comment = CommentModel(user_id=user_id, movie_id=movie_id, content=content)
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return comment
+
+
+async def get_movie_comments(db: AsyncSession, movie_id: int):
+    result = await db.execute(
+        select(CommentModel).where(CommentModel.movie_id == movie_id).order_by(CommentModel.created_at.desc())
+    )
+    return result.scalars().all()
+
+
+async def get_comment_or_404(comment_id: int, db: AsyncSession) -> CommentModel:
+    result = await db.execute(select(CommentModel).where(CommentModel.id == comment_id))
+    comment = result.scalar_one_or_none()
+    if not comment:
+        raise HTTPException(status_code=404, detail="Comment not found.")
+    return comment
+
+
+async def get_movie_reaction_counts(db, movie_ids: list[int]):
+    reaction_counts, _ = await get_reactions_summary(db=db, content_type="movie", object_ids=movie_ids, user_id=None)
+    return reaction_counts
+
+
+async def get_user_movie_reactions(db: AsyncSession, user_id: int, movie_ids: list[int]) -> dict[int, str | None]:
+    if not movie_ids:
+        return {}
+
+    stmt = select(Reaction.object_id, Reaction.reaction_type).where(
+        Reaction.content_type == "movie",
+        Reaction.object_id.in_(movie_ids),
+        Reaction.user_id == user_id,
+    )
+    result = await db.execute(stmt)
+    return {movie_id: reaction_type.value for movie_id, reaction_type in result.all()}

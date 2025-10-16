@@ -17,23 +17,31 @@ from database import (
     get_db,
 )
 from repository.movies import (
+    add_comment,
     get_genre_or_404,
-    get_genres,
+    get_genres_with_movie_count,
     get_movie,
+    get_movie_comments,
     get_movie_or_404,
+    get_movie_reaction_counts,
     get_movies,
     get_number_of_movies,
     get_or_create,
+    get_reactions_summary,
     get_star_or_404,
     get_stars,
+    get_user_movie_reactions,
     toggle_reaction,
 )
 from schemas.movies import (
+    CommentCreateSchema,
+    CommentDetailSchema,
     GenreCreate,
     GenreDetail,
     GenreUpdate,
     MovieCreateSchema,
     MovieDetail,
+    MovieListItemSchema,
     MovieListResponseSchema,
     MovieUpdateSchema,
     StarCreate,
@@ -47,14 +55,14 @@ router = APIRouter()
 
 @router.get(
     "/genres/",
-    description="Retrieve a list of all genres.",
+    description="Retrieve a list of all genres with the count of movies in each.",
     response_model=list[GenreDetail],
 )
 async def list_genres(
     current_user: Annotated[UserModel, Depends(require_user)],
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_genres(db)
+    return await get_genres_with_movie_count(db)
 
 
 @router.post(
@@ -224,13 +232,35 @@ async def list_movies(
     if not movies:
         raise HTTPException(status_code=404, detail="No movies found.")
 
+    movie_ids = [movie.id for movie in movies]
+
+    reaction_counts = await get_movie_reaction_counts(db, movie_ids)
+
+    user_reactions = await get_user_movie_reactions(db, current_user.id, movie_ids)
+
+    movie_list = []
+    for movie in movies:
+        counts = reaction_counts.get(movie.id, {"likes": 0, "dislikes": 0})
+        movie_list.append(
+            MovieListItemSchema(
+                id=movie.id,
+                name=movie.name,
+                year=movie.year,
+                imdb=movie.imdb,
+                description=movie.description,
+                likes=counts["likes"],
+                dislikes=counts["dislikes"],
+                user_reaction=user_reactions.get(movie.id),
+            )
+        )
+
     total_items = await get_number_of_movies(db)
     total_pages = (total_items - 1) // per_page + 1
-    prev_page = page - 1 if page > 1 else None
-    next_page = page + 1 if page < total_pages else None
+    prev_page = f"/movies/?page={page - 1}&per_page={per_page}" if page > 1 else None
+    next_page = f"/movies/?page={page + 1}&per_page={per_page}" if page < total_pages else None
 
     return MovieListResponseSchema(
-        movies=movies,
+        movies=movie_list,
         prev_page=prev_page,
         next_page=next_page,
         total_pages=total_pages,
@@ -439,4 +469,72 @@ async def react_movie(
 
     return await toggle_reaction(
         db=db, user_id=current_user.id, content_type="movie", object_id=movie_id, action=action
+    )
+
+
+@router.post(
+    "/{movie_id}/comments/",
+    response_model=CommentDetailSchema,
+)
+async def write_comment(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    movie_id: int,
+    data: CommentCreateSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_movie_or_404(movie_id, db)
+    return await add_comment(db, user_id=current_user.id, movie_id=movie_id, content=data.content)
+
+
+@router.get(
+    "/{movie_id}/comments/",
+    response_model=list[CommentDetailSchema],
+)
+async def list_comments(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    movie_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_movie_or_404(movie_id, db)
+    comments = await get_movie_comments(db, movie_id)
+    comment_ids = [comment.id for comment in comments]
+
+    reaction_counts, user_reactions = await get_reactions_summary(
+        db=db,
+        content_type="comment",
+        object_ids=comment_ids,
+        user_id=current_user.id,
+    )
+
+    return [
+        CommentDetailSchema(
+            id=comment.id,
+            user_id=comment.user_id,
+            content=comment.content,
+            created_at=comment.created_at,
+            likes=reaction_counts.get(comment.id, {}).get("likes", 0),
+            dislikes=reaction_counts.get(comment.id, {}).get("dislikes", 0),
+            user_reaction=user_reactions.get(comment.id),
+        )
+        for comment in comments
+    ]
+
+
+@router.post(
+    "/{comment_id}/comments/react/",
+    description="Like or dislike a comment.",
+    response_model=dict,
+)
+async def react_comment(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    comment_id: int,
+    action: ReactionTypeEnum,
+    db: AsyncSession = Depends(get_db),
+):
+    from repository.movies import get_comment_or_404
+
+    await get_comment_or_404(comment_id, db)
+
+    return await toggle_reaction(
+        db=db, user_id=current_user.id, content_type="comment", object_id=comment_id, action=action
     )
