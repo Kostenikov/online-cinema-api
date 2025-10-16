@@ -5,7 +5,7 @@ from fastapi import HTTPException
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from config.dependencies import get_settings
-from database import PaymentModel, PaymentStatusEnum
+from database import OrderItemModel, PaymentItemModel, PaymentModel, PaymentStatusEnum
 
 settings = get_settings()
 
@@ -17,7 +17,9 @@ class BasePaymentService(ABC):
     """
 
     @abstractmethod
-    def create_stripe_session(self, db: AsyncSession, user_id: int, order_id: int, amount: float):
+    def create_stripe_session(
+        self, db: AsyncSession, user_id: int, order_id: int, order_items: list[OrderItemModel], total_amount: float
+    ):
         pass
 
 
@@ -30,34 +32,57 @@ class StripePaymentService(BasePaymentService):
             stripe.api_key = settings.STRIPE_SECRET_KEY
         return cls._instance
 
-    async def create_stripe_session(self, db: AsyncSession, user_id: int, order_id: int, amount: float):
+    async def create_stripe_session(
+        self,
+        db: AsyncSession,
+        user_id: int,
+        order_id: int,
+        order_items: list[OrderItemModel],
+        total_amount: float,
+    ):
         try:
+            line_items = [
+                {
+                    "price_data": {
+                        "currency": "usd",
+                        "product_data": {
+                            "name": f"{item.movie.name}",
+                            "description": f"Movie id: {item.movie_id}",
+                        },
+                        "unit_amount": int(item.movie.price * 100),
+                    },
+                    "quantity": 1,
+                }
+                for item in order_items
+            ]
+
             session = stripe.checkout.Session.create(
                 payment_method_types=["card"],
-                line_items=[
-                    {
-                        "price_data": {
-                            "currency": "usd",
-                            "product_data": {"name": f"Order #{order_id}"},
-                            "unit_amount": int(amount * 100),
-                        },
-                        "quantity": 1,
-                    }
-                ],
+                line_items=line_items,
                 mode="payment",
-                success_url=f"{settings.DOMAIN}/api/v1/payments/success?session_id={{CHECKOUT_SESSION_ID}}",
+                success_url=f"{settings.DOMAIN}/api/v1/orders/",
                 cancel_url=f"{settings.DOMAIN}/api/v1/payments/cancel",
             )
 
             payment = PaymentModel(
                 user_id=user_id,
                 order_id=order_id,
-                amount=amount,
+                amount=total_amount,
                 external_payment_id=session.id,
                 external_payment_link=session.url,
                 status=PaymentStatusEnum.PENDING,
             )
             db.add(payment)
+            await db.commit()
+
+            for item in order_items:
+                payment_item = PaymentItemModel(
+                    payment_id=payment.id,
+                    order_item_id=order_id,
+                    price_at_payment=item.movie.price,
+                )
+                db.add(payment_item)
+
             await db.commit()
 
             return payment

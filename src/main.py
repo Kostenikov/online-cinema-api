@@ -4,13 +4,12 @@ from starlette.middleware.cors import CORSMiddleware
 from routes import (
     accounts_router,
     fe_router,
+    movies_router,
     orders_router,
+    payments_router,
     profiles_router,
     shopping_carts_router,
-    movies_router,
-    payments_router,
 )
-
 
 app = FastAPI(
     title="Online Cinema API",

@@ -27,7 +27,7 @@ async def create_test_payment(
         db=db,
         user_id=user.id,
         order_id=data.order_id,
-        amount=data.amount,
+        total_amount=data.amount,
     )
 
 

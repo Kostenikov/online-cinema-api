@@ -5,6 +5,9 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
 from database import CartItemModel, CartModel, OrderItemModel, OrderModel
+from repository.payments import StripePaymentService
+
+PAYMENT_SERVICE = StripePaymentService()
 
 
 async def get_user_orders(db: AsyncSession, user_id: int):
@@ -57,6 +60,14 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
         )
         db.add(order_item)
 
+    await PAYMENT_SERVICE.create_stripe_session(
+        db=db,
+        user_id=user_id,
+        order_id=new_order.id,
+        order_items=available_items,
+        total_amount=total_amount,
+    )
+
     for item in available_items:
         await db.delete(item)
 
@@ -65,7 +76,7 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
     return new_order, excluded_items
 
 
-async def cancel_order(db: AsyncSession, order_id: int, user_id: int):
+async def cancel_order(db: AsyncSession, order_id: int):
     order = await db.scalar(
         select(OrderModel)
         .options(joinedload(OrderModel.order_items).joinedload(OrderItemModel.movie))
