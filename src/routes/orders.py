@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/orders/",
+    "/",
     name="get_user_orders",
     response_model=list[OrderResponseSchema],
     summary="Get all user orders",
@@ -49,7 +49,7 @@ async def get_orders(
 
 
 @router.post(
-    "/orders/create/",
+    "/",
     name="create_order_from_cart",
     response_model=OrderCreateResponseSchema,
     summary="Create order from cart",
@@ -73,7 +73,7 @@ async def create_order(
 
 
 @router.post(
-    "/orders/{order_id}/cancel/",
+    "/{order_id}/cancel/",
     name="cancel_order",
     response_model=OrderResponseSchema,
     summary="Cancel pending order",
@@ -83,7 +83,7 @@ async def cancel_order_route(
     user: UserModel = Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    order, error = await cancel_order(db, order_id, user.id)
+    order, error = await cancel_order(db, order_id)
     if error:
         raise HTTPException(status_code=400, detail=error)
     return OrderResponseSchema(
@@ -105,7 +105,7 @@ async def cancel_order_route(
 
 
 @router.get(
-    "/admin/orders/",
+    "/for_staff/",
     name="get_all_orders_admin",
     response_model=list[OrderResponseSchema],
     summary="Get all orders (admin only, optional filter by user_id)",

@@ -1,13 +1,15 @@
-from fastapi import FastAPI, Request
-from fastapi.encoders import jsonable_encoder
-from fastapi.exceptions import RequestValidationError
-from fastapi.responses import JSONResponse
-from starlette.datastructures import UploadFile
+from fastapi import FastAPI
 from starlette.middleware.cors import CORSMiddleware
 
-from routes import accounts_router, fe_router, orders_router, profiles_router, shopping_carts_router
-from routes.movies import router as movies_router
-from routes.payments import router as payments_router
+from routes import (
+    accounts_router,
+    fe_router,
+    movies_router,
+    orders_router,
+    payments_router,
+    profiles_router,
+    shopping_carts_router,
+)
 
 app = FastAPI(
     title="Online Cinema API",
