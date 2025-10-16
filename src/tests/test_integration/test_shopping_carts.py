@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel, UserModel, OrderStatusEnum
+from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel, OrderStatusEnum, UserModel
 from main import app
 from security.interfaces import JWTAuthManagerInterface
 

@@ -2,7 +2,9 @@ from abc import ABC, abstractmethod
 
 import stripe
 from fastapi import HTTPException
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from config.dependencies import get_settings
 from database import OrderItemModel, PaymentItemModel, PaymentModel, PaymentStatusEnum
@@ -89,3 +91,14 @@ class StripePaymentService(BasePaymentService):
 
         except stripe.StripeError as e:
             raise HTTPException(status_code=400, detail=f"Stripe error: {str(e)}")
+
+
+async def get_user_payments(db: AsyncSession, user_id: int):
+    """Get all user payments"""
+    result = await db.scalars(
+        select(PaymentModel)
+        .options(selectinload(PaymentModel.payment_items).selectinload(PaymentItemModel.order_item))
+        .where(PaymentModel.user_id == user_id)
+        .order_by(PaymentModel.created_at.desc())
+    )
+    return result.all()

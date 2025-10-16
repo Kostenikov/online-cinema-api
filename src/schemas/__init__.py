@@ -20,6 +20,7 @@ from schemas.orders import (
 )
 from schemas.payments import (
     PaymentCreateSchema,
+    PaymentItemResponseSchema,
     PaymentResponseSchema,
 )
 from schemas.profiles import (
