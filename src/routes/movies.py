@@ -475,12 +475,9 @@ async def react_comment(
     db: AsyncSession = Depends(get_db),
 ):
     from repository.movies import get_comment_or_404
+
     await get_comment_or_404(comment_id, db)
 
     return await toggle_reaction(
-        db=db,
-        user_id=current_user.id,
-        content_type="comment",
-        object_id=comment_id,
-        action=action
+        db=db, user_id=current_user.id, content_type="comment", object_id=comment_id, action=action
     )

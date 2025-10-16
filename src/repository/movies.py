@@ -242,15 +242,11 @@ async def get_comment_or_404(comment_id: int, db: AsyncSession) -> CommentModel:
 
 
 async def get_comment_reaction_counts(db: AsyncSession, comment_id: int):
-    stmt = select(
-        Reaction.reaction_type, func.count(Reaction.id)
-    ).where(
-        Reaction.content_type == "comment",
-        Reaction.object_id == comment_id
-    ).group_by(Reaction.reaction_type)
+    stmt = (
+        select(Reaction.reaction_type, func.count(Reaction.id))
+        .where(Reaction.content_type == "comment", Reaction.object_id == comment_id)
+        .group_by(Reaction.reaction_type)
+    )
     result = await db.execute(stmt)
     counts = dict(result.all())
-    return {
-        "likes": counts.get(ReactionTypeEnum.LIKE, 0),
-        "dislikes": counts.get(ReactionTypeEnum.DISLIKE, 0)
-    }
+    return {"likes": counts.get(ReactionTypeEnum.LIKE, 0), "dislikes": counts.get(ReactionTypeEnum.DISLIKE, 0)}
