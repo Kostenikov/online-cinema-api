@@ -4,6 +4,19 @@ from typing import Optional
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
 
+class CommentCreateSchema(BaseModel):
+    content: str = Field(min_length=1, max_length=500)
+
+
+class CommentDetailSchema(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    user_id: int
+    content: str
+    created_at: datetime
+
+
 class NameBase(BaseModel):
     name: str = Field(max_length=255)
 
@@ -18,8 +31,8 @@ class GenreUpdate(BaseModel):
 
 class GenreDetail(NameBase):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
+    movie_count: int = 0
 
 
 class StarCreate(NameBase):
@@ -32,19 +45,16 @@ class StarUpdate(BaseModel):
 
 class StarDetail(NameBase):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
 
 
 class DirectorSchema(NameBase):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
 
 
 class CertificationSchema(NameBase):
     model_config = ConfigDict(from_attributes=True)
-
     id: int
 
 
@@ -95,8 +105,8 @@ class MovieListResponseSchema(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
     movies: list[MovieListItemSchema]
-    prev_page: Optional[int]
-    next_page: Optional[int]
+    prev_page: Optional[str]
+    next_page: Optional[str]
     total_pages: int
     total_items: int
 

@@ -1,6 +1,7 @@
 from typing import Annotated, Optional
+from urllib.parse import urlencode
 
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Query, Request, status
 from sqlalchemy import select, union
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,9 +18,11 @@ from database import (
     get_db,
 )
 from repository.movies import (
+    add_comment,
     get_genre_or_404,
-    get_genres,
+    get_genres_with_movie_count,
     get_movie,
+    get_movie_comments,
     get_movie_or_404,
     get_movies,
     get_number_of_movies,
@@ -29,6 +32,8 @@ from repository.movies import (
     toggle_reaction,
 )
 from schemas.movies import (
+    CommentCreateSchema,
+    CommentDetailSchema,
     GenreCreate,
     GenreDetail,
     GenreUpdate,
@@ -47,14 +52,14 @@ router = APIRouter()
 
 @router.get(
     "/genres/",
-    description="Retrieve a list of all genres.",
+    description="Retrieve a list of all genres with the count of movies in each.",
     response_model=list[GenreDetail],
 )
 async def list_genres(
     current_user: Annotated[UserModel, Depends(require_user)],
     db: AsyncSession = Depends(get_db),
 ):
-    return await get_genres(db)
+    return await get_genres_with_movie_count(db)
 
 
 @router.post(
@@ -226,8 +231,8 @@ async def list_movies(
 
     total_items = await get_number_of_movies(db)
     total_pages = (total_items - 1) // per_page + 1
-    prev_page = page - 1 if page > 1 else None
-    next_page = page + 1 if page < total_pages else None
+    prev_page = f"/movies/?page={page - 1}&per_page={per_page}" if page > 1 else None
+    next_page = f"/movies/?page={page + 1}&per_page={per_page}" if page < total_pages else None
 
     return MovieListResponseSchema(
         movies=movies,
@@ -440,3 +445,24 @@ async def react_movie(
     return await toggle_reaction(
         db=db, user_id=current_user.id, content_type="movie", object_id=movie_id, action=action
     )
+
+
+@router.post("/{movie_id}/comments/", response_model=CommentDetailSchema)
+async def write_comment(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    movie_id: int,
+    data: CommentCreateSchema,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_movie_or_404(movie_id, db)
+    return await add_comment(db, user_id=current_user.id, movie_id=movie_id, content=data.content)
+
+
+@router.get("/{movie_id}/comments/", response_model=list[CommentDetailSchema])
+async def list_comments(
+    current_user: Annotated[UserModel, Depends(require_user)],
+    movie_id: int,
+    db: AsyncSession = Depends(get_db),
+):
+    await get_movie_or_404(movie_id, db)
+    return await get_movie_comments(db, movie_id)

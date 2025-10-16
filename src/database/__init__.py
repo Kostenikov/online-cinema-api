@@ -19,6 +19,7 @@ from database.models.movies import (
     MovieModel,
     Reaction,
     ReactionTypeEnum,
+    CommentModel,
 )
 from database.models.shopping_carts import (
     CartModel,

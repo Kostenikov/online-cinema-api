@@ -5,7 +5,7 @@ from sqlalchemy import asc, desc, func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload
 
-from database import Base, DirectorModel, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
+from database import Base, CommentModel, DirectorModel, GenreModel, MovieModel, Reaction, ReactionTypeEnum, StarModel
 
 T = TypeVar("T", bound=Base)
 
@@ -25,6 +25,7 @@ async def get_movies(
     sort_by: Optional[str] = None,
     sort_order: str = "desc",
     search: Optional[str] = None,
+    genre_id: Optional[int] = None,
 ) -> Sequence[MovieModel]:
     query = select(MovieModel)
 
@@ -35,6 +36,8 @@ async def get_movies(
         joinedload(MovieModel.certification),
     )
 
+    if genre_id is not None:
+        query = query.join(MovieModel.genres).where(GenreModel.id == genre_id)
     if year_from is not None:
         query = query.where(MovieModel.year >= year_from)
     if year_to is not None:
@@ -175,3 +178,56 @@ async def toggle_reaction(db, user_id, content_type, object_id, action: Reaction
         db.add(new_reaction)
         await db.commit()
         return {"detail": f"{action.value.capitalize()} added."}
+
+
+async def get_genres_with_movie_count(db: AsyncSession) -> list[dict]:
+    query = (
+        select(GenreModel.id, GenreModel.name, func.count(MovieModel.id).label("movie_count"))
+        .join(MovieModel.genres, isouter=True)
+        .group_by(GenreModel.id)
+    )
+    result = await db.execute(query)
+
+    genres = []
+    for res in result.all():
+        genres.append(
+            {
+                "id": res.id,
+                "name": res.name,
+                "movie_count": res.movie_count,
+                "movies_url": f"/movies/?genre_id={res.id}",
+            }
+        )
+    return genres
+
+
+async def get_movies_by_genre(genre_id: int, db: AsyncSession) -> Sequence[MovieModel]:
+    query = (
+        select(MovieModel)
+        .join(MovieModel.genres)
+        .where(GenreModel.id == genre_id)
+        .options(
+            joinedload(MovieModel.genres),
+            joinedload(MovieModel.directors),
+            joinedload(MovieModel.stars),
+            joinedload(MovieModel.certification),
+        )
+        .order_by(MovieModel.id.desc())
+    )
+    result = await db.execute(query)
+    return result.unique().scalars().all()
+
+
+async def add_comment(db: AsyncSession, user_id: int, movie_id: int, content: str):
+    comment = CommentModel(user_id=user_id, movie_id=movie_id, content=content)
+    db.add(comment)
+    await db.commit()
+    await db.refresh(comment)
+    return comment
+
+
+async def get_movie_comments(db: AsyncSession, movie_id: int):
+    result = await db.execute(
+        select(CommentModel).where(CommentModel.movie_id == movie_id).order_by(CommentModel.created_at.desc())
+    )
+    return result.scalars().all()
