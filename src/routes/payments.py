@@ -5,7 +5,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.future import select
 
 from config.dependencies import get_settings
-from database import get_db
+from database import get_db, OrderStatusEnum
 from database.models.orders import OrderModel
 from database.models.payments import PaymentModel, PaymentStatusEnum
 from repository.payments import StripePaymentService
@@ -53,7 +53,7 @@ async def stripe_webhook(request: Request, db: AsyncSession = Depends(get_db)):
                 payment.status = PaymentStatusEnum.SUCCESSFUL
                 order = await db.get(OrderModel, payment.order_id)
                 if order:
-                    order.status = "paid"  # TODO change order statuses
+                    order.status = OrderStatusEnum.PAID
                 await db.commit()
 
         elif event["type"] == "checkout.session.expired":

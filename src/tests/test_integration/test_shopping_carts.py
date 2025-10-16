@@ -3,7 +3,7 @@ from httpx import AsyncClient
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel, UserModel
+from database import CartItemModel, CartModel, MovieModel, OrderItemModel, OrderModel, UserModel, OrderStatusEnum
 from main import app
 from security.interfaces import JWTAuthManagerInterface
 
@@ -325,7 +325,7 @@ class TestAddItemToCart:
         When attempting to add it to cart
         Then a 400 error should be returned
         """
-        order = OrderModel(user_id=user.id, status="paid", total_amount=1.0)
+        order = OrderModel(user_id=user.id, status=OrderStatusEnum.PAID, total_amount=1.0)
         db_session.add(order)
         await db_session.commit()
         await db_session.refresh(order)

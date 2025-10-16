@@ -18,9 +18,9 @@ from database import Base, MovieModel, UserModel
 
 
 class OrderStatusEnum(str, Enum):
-    pending = "pending"
-    paid = "paid"
-    canceled = "canceled"
+    PENDING = "pending"
+    PAID = "paid"
+    CANCELED = "canceled"
 
 
 class OrderModel(Base):
@@ -46,7 +46,7 @@ class OrderModel(Base):
     status: Mapped[str] = mapped_column(
         String(50),
         nullable=False,
-        default=OrderStatusEnum.pending.value,
+        default=OrderStatusEnum.CANCELED,
     )
 
     total_amount: Mapped[float | None] = mapped_column(

@@ -4,7 +4,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import joinedload, selectinload
 
-from database import CartItemModel, CartModel, OrderItemModel, OrderModel
+from database import CartItemModel, CartModel, OrderItemModel, OrderModel, OrderStatusEnum
 from repository.payments import StripePaymentService
 
 PAYMENT_SERVICE = StripePaymentService()
@@ -46,7 +46,7 @@ async def create_order_from_cart(db: AsyncSession, user_id: int):
 
     new_order = OrderModel(
         user_id=user_id,
-        status="pending",
+        status=OrderStatusEnum.PENDING,
         total_amount=total_amount,
     )
     db.add(new_order)
@@ -84,10 +84,10 @@ async def cancel_order(db: AsyncSession, order_id: int):
     )
     if not order:
         return None, "Order not found."
-    if order.status != "pending":
+    if order.status != OrderStatusEnum.PENDING:
         return None, "Only pending orders can be canceled."
 
-    order.status = "canceled"
+    order.status = OrderStatusEnum.CANCELED
     await db.commit()
     await db.refresh(order)
     return order, None
